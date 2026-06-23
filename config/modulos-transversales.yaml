@@ -1,0 +1,30 @@
+schema: forge-modulos-transversales
+
+# Módulos transversales del proyecto.
+# Un módulo transversal es código que es consumido por múltiples paquetes/sitios
+# y cuya modificación tiene blast radius amplio. Listarlo acá le permite a forge
+# (especialmente /fg-explore y /fg-design) advertir al dev antes de tocarlos.
+#
+# Editarlo a medida que el proyecto crece.
+
+modules:
+
+  - name: cms-client
+    path: packages/cms-client
+    description: >
+      Capa fina compartida: DTOs como esquemas Zod (esquemas.ts), tipos inferidos (tipos.ts),
+      fixtures de contenido (fixtures/sabrina.ts) y obtenerSitioSabrina() (cliente.ts).
+      Consumida por todos los sitios. Cambios acá afectan todos los consumers.
+    consumers:
+      - sites/influencers/sabrina
+    blast_radius: high
+
+  - name: tsconfig-base
+    path: tsconfig.base.json
+    description: >
+      Config TypeScript base del monorepo. Todas las apps y paquetes la extienden.
+      Cambios pueden romper el typecheck en todo el monorepo.
+    consumers:
+      - packages/cms-client
+      - sites/influencers/sabrina
+    blast_radius: high

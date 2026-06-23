@@ -1,0 +1,58 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+.next/
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# payload / uploads locales
+/apps/cms/media/
+
+# playwright artefactos
+.playwright-mcp/
+
+# config MCP con secreto (no commitear)
+.mcp.json
+
+# forge — índice CodeGraph (máquina-local, no versionado)
+.codegraph/
+
+# forge — memoria engram (máquina-local, excepto chunks cross-machine)
+.engram/
+!.engram/chunks/
+
+# forge — log runtime del filtro PII (hashes, máquina-local)
+.forge/auditoria-pii.jsonl
+
+# settings locales de Claude Code (por usuario, no del proyecto)
+.claude/settings.local.json
+
+# staging de imagenes fuente del sitio (los assets servidos viven en public/assets/)
+/sites/influencers/sabrina/uploads/
+
+# imagenes sueltas de scratch en la raiz (no referenciadas)
+/hero-fondo.jpeg
+/sabrina-hero2.png
+
+# mockups/capturas de WhatsApp pegadas como referencia (no son assets)
+WhatsApp Image *.jpeg
