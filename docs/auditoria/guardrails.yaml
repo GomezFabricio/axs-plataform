@@ -1,0 +1,37 @@
+schema: forge-guardrails
+
+# Reglas del hook PreToolUse (guardrails de forge).
+# Este archivo es la plantilla de configuración del hook — editarlo para ajustar
+# qué herramientas o patrones requieren confirmación explícita antes de ejecutar.
+#
+# Los guardrails aplican en tiempo de ejecución: el hook lee este archivo antes de
+# cada invocación de tool y decide si permitir, advertir o bloquear.
+
+rules:
+
+  # Herramientas destructivas: requieren autorización explícita antes de ejecutar.
+  destructive_tools:
+    require_authorization: true
+    tools:
+      - Bash       # comandos con rm, drop, truncate, force push, etc.
+      - Write      # sobrescritura de archivos existentes sin Read previo
+
+  # Patrones de comando de alto riesgo: el hook los detecta y advierte antes de ejecutar.
+  dangerous_patterns:
+    - pattern: "git push.*--force"
+      action: block
+      message: "Force push detectado. Pedí autorización explícita al dev antes de continuar."
+    - pattern: "rm -rf"
+      action: warn
+      message: "Borrado recursivo detectado. Verificá que sea intencional."
+    - pattern: "DROP TABLE|TRUNCATE"
+      action: block
+      message: "Operación destructiva sobre base de datos. Requiere autorización explícita."
+
+  # Archivos protegidos: nunca sobrescribir sin confirmación del dev.
+  protected_files:
+    - "docs/auditoria/config.yaml"
+    - "docs/auditoria/guardrails.yaml"
+    - "CLAUDE.md"
+    - ".gitignore"
+    - "pnpm-lock.yaml"

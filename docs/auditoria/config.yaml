@@ -1,0 +1,50 @@
+schema: forge
+
+context:
+  stacks:
+    - node         # pnpm monorepo, TypeScript estricto
+    - typescript   # tsconfig.base.json + per-package tsconfig
+  frameworks:
+    - next         # Next.js 16 App Router (sites/influencers/sabrina)
+    - payload      # Payload CMS headless sobre PostgreSQL (apps/cms — próximo incremento)
+    - tailwind     # Tailwind 4 (sitios)
+    - framer-motion
+    - zod          # validación DTOs (packages/cms-client)
+  test_runner:     # ningún test runner detectado al correr /fg-setup
+    name: null
+    command: null
+    detected_from: null
+
+rules:
+  workflow:
+    # cycle_mode: cómo corren las 4 fases del workflow forge.
+    #   "interactive" = pausa entre fases para revisar. "automatic" = sin pausa.
+    # el orquestador lo pregunta una vez por sesión (post-explore) y cachea la respuesta.
+    cycle_mode: interactive
+
+    # ceremonial_threshold: cuánto ritual aplica el orquestador.
+    #   "auto"  = propone el nivel y espera confirmación del dev (default).
+    #   "lite"  = sesga hacia Rápido siempre que se pueda.
+    #   "full"  = fuerza Completo siempre, sin preguntar.
+    ceremonial_threshold: auto
+
+  pr_size:
+    # Controls del Review Workload Forecast — ver /fg-design y fg-phase-common.md Sección C.
+    budget_lines: 400       # umbral de "PR grande" (líneas cambiadas)
+    suggest_split: false    # si sugerir chained PRs al superar el budget
+    enforcement: off        # off | warn | block (off = sin mención del budget)
+
+  implement:
+    # Si true, /fg-implement aplica Safety Net → RED → GREEN → TRIANGULATE → REFACTOR.
+    # Activar editando este valor a true cuando el proyecto tenga una suite de tests.
+    tdd: false
+    # Comando de test. Si vacío, usa context.test_runner.command.
+    test_command: ""
+    # Máximo de tareas por batch. /fg-implement corta al llegar al límite y reporta.
+    max_tasks_per_batch: 20
+
+  review:
+    # Comando que /fg-review usa para validar la suite completa al cierre.
+    test_command: ""
+    # Cobertura mínima requerida sobre archivos cambiados (0 = sin enforcement).
+    coverage_threshold: 0
