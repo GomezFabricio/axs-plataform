@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: axs
+      POSTGRES_PASSWORD: axsdev
+      POSTGRES_DB: axs_cms
+    ports:
+      - "5432:5432"
+    volumes:
+      - axs_cms_postgres:/var/lib/postgresql/data
+
+volumes:
+  axs_cms_postgres:
