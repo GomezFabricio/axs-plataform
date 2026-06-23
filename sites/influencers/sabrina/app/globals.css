@@ -1,0 +1,132 @@
+@import "tailwindcss";
+@import "@phosphor-icons/web/light";
+@import "@phosphor-icons/web/regular";
+@import "@phosphor-icons/web/fill";
+
+/*
+  Tokens de diseño de Sabrina como CSS variables (regla anti-IA: tokens via CSS vars).
+  Paleta rosa/marron especifica e intencional, NO un crema generico. Un solo acento,
+  bloqueado para toda la pagina. Sombras tintadas al tono, nunca negro puro.
+  El acento puede ser sobrescrito por la clienta via inline style en el root (--acento).
+*/
+:root {
+  --fondo: #fcf9f8;
+  --acento: #d98ba0;
+  --acento-suave: #f3d9dd;
+  /* Rosa oscuro para texto pequeno: contraste 5.4:1 sobre --fondo (pasa WCAG AA 4.5:1). */
+  --acento-texto: #a8466a;
+  --texto: #2a211d;
+  --marron: #6e4b3a;
+  --marron-claro: #8c6a55;
+  --marron-tenue: #a08573;
+  --borde: #f0e6e1;
+  --borde-tenue: #efe3de;
+
+  --radio-sm: 12px;
+  --radio-md: 16px;
+  --radio-lg: 20px;
+  --radio-pill: 999px;
+
+  --sombra-card: 0 24px 56px -34px rgba(110, 75, 58, 0.4);
+  --sombra-figura: 0 30px 70px -38px rgba(110, 75, 58, 0.45);
+  --sombra-acento: 0 16px 34px -14px rgba(217, 139, 160, 0.85);
+
+  --ancho-contenido: 1160px;
+  --ease-suave: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@theme inline {
+  --font-serif: var(--fuente-serif);
+  --font-sans: var(--fuente-sans);
+  --color-fondo: var(--fondo);
+  --color-acento: var(--acento);
+  --color-acento-suave: var(--acento-suave);
+  --color-texto: var(--texto);
+  --color-marron: var(--marron);
+  --color-marron-claro: var(--marron-claro);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--fondo);
+}
+
+body {
+  font-family: var(--fuente-sans), system-ui, sans-serif;
+  color: var(--texto);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--acento-suave);
+  color: var(--texto);
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+/*
+  Offset para los saltos de anchor: el header es fixed, asi que las secciones
+  destino deben dejar aire arriba para no quedar tapadas. Cubre el caso nativo
+  (reduced-motion, donde Lenis no se monta); en el caso suave, Lenis aplica su
+  propio offset al hacer scrollTo.
+*/
+:where(section[id], [id="top"]) {
+  scroll-margin-top: 5.5rem;
+}
+
+.serif {
+  font-family: var(--fuente-serif), Georgia, serif;
+}
+
+/*
+  Sobre mi en mobile: el texto lidera y la foto baja, contenida y mas chica (mismo
+  criterio que el hero: en una marca de servicios el mensaje abre, la foto acompaña).
+  En desktop queda intacto (foto a la izquierda, texto a la derecha).
+*/
+@media (max-width: 860px) {
+  .sobremi-figura {
+    order: 2;
+    max-width: 360px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Forma organica del hero. Solo transform: barata de animar. */
+@keyframes flotarBlob {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(-12px, 16px) rotate(4deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+/* prefers-reduced-motion: todo el movimiento colapsa a estatico. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
