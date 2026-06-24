@@ -9,7 +9,11 @@
     "start": "next start --port 3001",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "cms:seed": "payload run src/seed/index.ts"
+    "cms:seed": "payload run src/seed/index.ts",
+    "migrate": "payload migrate",
+    "migrate:create": "payload migrate:create",
+    "migrate:status": "payload migrate:status",
+    "migrate:fresh": "payload migrate:fresh"
   },
   "dependencies": {
     "@axs/cms-client": "workspace:*",

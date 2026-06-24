@@ -28,6 +28,7 @@ export default buildConfig({
     // En desarrollo se puede usar push: true para crear/actualizar el esquema sin migrar.
     // En producción desactivar esto y usar las migraciones generadas.
     push: process.env["NODE_ENV"] !== "production",
+    migrationDir: path.resolve(__dirname, "src/migrations"),
   }),
   secret: process.env["PAYLOAD_SECRET"] ?? "",
   typescript: {
