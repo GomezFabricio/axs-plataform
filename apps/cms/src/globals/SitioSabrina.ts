@@ -1,4 +1,4 @@
-import type { GlobalConfig } from "payload";
+import type { GlobalConfig, AccessArgs } from "payload";
 
 /**
  * Global singleton que contiene el contenido completo del sitio de Sabrina.
@@ -6,11 +6,66 @@ import type { GlobalConfig } from "payload";
  * El endpoint /api/sitios/sabrina lee este global y ensambla el DTO.
  *
  * Campos en camelCase español (convenciones) → columnas snake_case generadas por el adaptador.
+ *
+ * Access control:
+ * - super_admin puede leer y actualizar siempre.
+ * - tenant_editor de Sabrina (clienta con slug "sabrina") puede leer y actualizar.
+ * - Otros tenant_editors (futuros) NO pueden tocar este global.
+ * - El endpoint público /api/sitios/sabrina usa Local API con overrideAccess:true (por defecto
+ *   en la Local API de Payload), por lo que NO se ve afectado por estas restricciones.
+ *
+ * DEUDA FASE 3: este global es un singleton sin field `clienta` que lo vincule a un tenant.
+ * El modelo multi-tenant correcto (un global o colección por tenant) queda pendiente para Fase 3.
+ * Hoy el ownership se resuelve pragmáticamente: resolving el id de la clienta "sabrina" por slug
+ * y comparando con req.user.clienta. Ver D7 en decisiones.md.
  */
+
+/**
+ * Resuelve si el usuario autenticado es el tenant_editor de la clienta dueña de este global.
+ * La "clienta dueña" se identifica por el slug "sabrina" (constante de slug, no id numérico).
+ * Devuelve true si el usuario es super_admin o el editor asignado a esa clienta.
+ * Async porque necesita resolver el id del slug via Local API.
+ */
+const SLUG_CLIENTA_SABRINA = "sabrina" as const;
+
+async function esEditorDeSabrina({ req }: AccessArgs): Promise<boolean> {
+  const user = req.user;
+  if (!user) return false;
+  if (user.rol === "super_admin") return true;
+  if (user.rol !== "tenant_editor" || !user.clienta) return false;
+
+  // Resolver el id de la clienta por slug (no hardcodear el id numérico).
+  // overrideAccess: true — consulta interna del sistema de access control, no acción del usuario.
+  const resultado = await req.payload.find({
+    collection: "clientas",
+    where: { slug: { equals: SLUG_CLIENTA_SABRINA } },
+    limit: 1,
+    overrideAccess: true,
+  });
+
+  if (resultado.docs.length === 0) return false;
+
+  const clientaSabrinaId = resultado.docs[0]!.id;
+  const userClientaId =
+    typeof user.clienta === "object" && user.clienta !== null
+      ? (user.clienta as { id: number | string }).id
+      : user.clienta;
+
+  return String(userClientaId) === String(clientaSabrinaId);
+}
+
 export const SitioSabrina: GlobalConfig = {
   slug: "sitio-sabrina",
   admin: {
     group: "Contenido del sitio",
+  },
+  access: {
+    // read: panel de Payload. super_admin ve siempre; tenant_editor de Sabrina también.
+    // El endpoint público /api/sitios/sabrina usa Local API con overrideAccess (default),
+    // así que este bloque no afecta al endpoint público.
+    read: esEditorDeSabrina,
+    // update: solo super_admin o el tenant_editor de Sabrina.
+    update: esEditorDeSabrina,
   },
   fields: [
     // ─── config ──────────────────────────────────────────────────────────────

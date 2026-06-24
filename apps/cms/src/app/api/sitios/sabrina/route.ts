@@ -1,13 +1,42 @@
 import { getPayload } from "payload";
 import configPromise from "@payload-config";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { consultarRateLimit } from "@/lib/rateLimit";
 
 /**
  * GET /api/sitios/sabrina
  * Lee el Global sitio-sabrina vía la Local API de Payload y devuelve el DTO
  * con la forma exacta de SitioSabrinaSchema (validado en el borde por cms-client).
  */
-export async function GET(): Promise<NextResponse> {
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  // ── Rate limit por IP ──────────────────────────────────────────────────────
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "desconocido";
+
+  const { permitido, restantes, reiniciaEn } = consultarRateLimit(ip);
+
+  if (!permitido) {
+    const retryAfterSecs = Math.ceil((reiniciaEn - Date.now()) / 1000);
+    return NextResponse.json(
+      { error: "Demasiadas solicitudes" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(retryAfterSecs),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
+    );
+  }
+
+  // Para requests permitidas, exponemos cuántas quedan (útil para debug/monitoreo)
+  const rateLimitHeaders = {
+    "X-RateLimit-Remaining": String(restantes),
+  };
+
   try {
     const payload = await getPayload({ config: configPromise });
 
@@ -48,6 +77,13 @@ export async function GET(): Promise<NextResponse> {
         imagen?: { url?: string; textoAlternativo?: string };
       }>;
     } | null | undefined;
+
+    if (!hero?.escenas || hero.escenas.length < 1) {
+      return NextResponse.json(
+        { error: "Contenido del sitio incompleto" },
+        { status: 422 }
+      );
+    }
 
     const sobreMi = global.sobreMi as {
       copete?: string;
@@ -253,11 +289,12 @@ export async function GET(): Promise<NextResponse> {
       },
     };
 
-    return NextResponse.json(dto);
+    return NextResponse.json(dto, { headers: rateLimitHeaders });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error interno del servidor";
+    console.error("[GET /api/sitios/sabrina]", message);
     return NextResponse.json(
-      { error: "No se pudo obtener el sitio", detalle: message },
+      { error: "No se pudo obtener el sitio" },
       { status: 500 }
     );
   }

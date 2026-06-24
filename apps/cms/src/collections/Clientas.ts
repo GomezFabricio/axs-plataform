@@ -10,6 +10,25 @@ export const Clientas: CollectionConfig = {
   admin: {
     useAsTitle: "nombre",
   },
+  access: {
+    // super_admin ve todas las clientas; tenant_editor solo su propia clienta (filtro por id).
+    // Nota: los registros de Clientas son la raíz del tenant — no tienen un field `clienta`
+    // propio, son el tenant mismo. Por eso el filtro es por `id`, no por relationship.
+    read: ({ req: { user } }) => {
+      if (!user) return false;
+      if (user.rol === "super_admin") return true;
+      if (user.clienta) {
+        const clientaId =
+          typeof user.clienta === "object" ? user.clienta.id : user.clienta;
+        return { id: { equals: clientaId } };
+      }
+      return false;
+    },
+    // Solo super_admin puede crear, modificar o eliminar clientas.
+    create: ({ req: { user } }) => user?.rol === "super_admin",
+    update: ({ req: { user } }) => user?.rol === "super_admin",
+    delete: ({ req: { user } }) => user?.rol === "super_admin",
+  },
   fields: [
     {
       name: "nombre",
