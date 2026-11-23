@@ -21,6 +21,14 @@ export default buildConfig({
   collections: [Clientas, Usuarios, Medios],
   globals: [SitioSabrina],
   editor: lexicalEditor({}),
+  // Tope por archivo subido (10 MB): una foto de celular entra holgada.
+  // abortOnLimit: sin esto Payload trunca el archivo en silencio y lo guarda corrupto.
+  upload: {
+    limits: {
+      fileSize: 10_000_000,
+    },
+    abortOnLimit: true,
+  },
   db: postgresAdapter({
     pool: {
       connectionString: process.env["DATABASE_URI"] ?? "",

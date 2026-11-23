@@ -58,8 +58,8 @@ Colecciones activas en Payload sobre PostgreSQL:
 |---|---|---|
 | `clientas` | Tenants del sistema | `slug` unique, `dominio?`, `theme?` (tokens JSON), `estaActiva` |
 | `usuarios` | Auth del panel | Roles: `super_admin` (Axs) o `tenant_editor` (clienta). FK a `clientas`. |
-| `medios` | Upload collection | `textoAlternativo`, relacion a `clientas`. En Fase 1 no se usa activamente (imagen modelada inline en el Global). |
-| Global `sitio-sabrina` | Contenido del sitio | 13 bloques que espejan 1:1 `SitioSabrinaSchema`. Singleton por instalacion. |
+| `medios` | Upload collection | `textoAlternativo`, relacion a `clientas`. La clienta sube sus fotos desde el panel (JPG, PNG, WebP o AVIF, hasta 10 MB; SVG no). Archivos publicos en `/api/medios/file/<archivo>`; en el panel cada editora ve solo los suyos. Una foto en uso en el sitio no se puede borrar. Desde 2026-11-23. |
+| Global `sitio-sabrina` | Contenido del sitio | 13 bloques que espejan 1:1 `SitioSabrinaSchema`. Singleton por instalacion. Las imagenes son campos upload a `medios`; el endpoint las convierte a `{ url, textoAlternativo, ancho, alto }`. |
 
 Colecciones previstas en `docs/esquema.sql`, a implementar en Fase 2:
 `suscripciones`, `mantenimientos`, `pagos`.

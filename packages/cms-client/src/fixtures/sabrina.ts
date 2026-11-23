@@ -4,7 +4,8 @@ import type { SitioSabrina } from "../tipos";
  * Contenido ficticio realista del sitio de Sabrina. Reemplaza temporalmente lo
  * que servirá la API del CMS: cuando Payload esté arriba, obtenerSitioSabrina()
  * traerá esto de la base y el sitio no se entera. Los iconos son nombres de
- * Phosphor. Las imagenes viven en public/assets del sitio.
+ * Phosphor. Las urls de imagen son rutas dentro de public/ del sitio: el seed sube esos
+ * archivos a la coleccion medios del CMS, que es desde donde se sirven.
  */
 export const sitioSabrina: SitioSabrina = {
   config: {
