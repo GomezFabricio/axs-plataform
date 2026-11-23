@@ -80,7 +80,9 @@ Colecciones previstas en `docs/esquema.sql`, a implementar en Fase 2:
 | Fase | Estado | Descripcion |
 |---|---|---|
 | Fase 1 | Completada (2026-06-22) | CMS levantado, Sabrina como primer tenant, endpoint `/api/sitios/sabrina` funcionando, sitio cableado al fetch real. |
-| Fase 2 | Pendiente | Mantenimientos + pagos + deploy (Docker/Coolify/VPS, migraciones de produccion). |
+| Fase 2.1 | Completada (2026-06-24) | Baseline de migraciones de produccion y hardening del CMS: authz multi-tenant en colecciones, campos y global; endpoint publico con rate limit y errores sin detalle. Expediente: `docs/auditoria/cambios/2026-06-chore-hardening-cms-deploy/`. |
+| Fase 2.2 | En curso (2026-11-23) | Deploy. Hecho: Dockerfiles multi-stage del CMS y de Sabrina, `compose.local.yaml` para levantar ambos en local. Falta: compose de produccion, VPS + Coolify, dominio. |
+| Fase 2.3 | Pendiente | Mantenimientos + pagos (`suscripciones`, `mantenimientos`, `pagos` + MercadoPago). |
 | Fase 3 | Pendiente | Onboarding de clientas nuevas. Cada clienta nueva = nuevo `sites/<rubro>/<clienta>/` + tenant en el CMS. |
 
 ## Decisiones de arquitectura

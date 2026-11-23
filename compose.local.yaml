@@ -1,0 +1,42 @@
+# Local deployment of the CMS and Sabrina's site.
+# Reuses the dev Postgres from apps/cms/docker-compose.yml (must be running on host port 5432).
+#
+#   docker compose -f compose.local.yaml up -d --build cms
+#   docker compose -f compose.local.yaml up -d --build sabrina
+#
+# Sabrina is built after the CMS is up because its home page is prerendered at build time.
+name: axs-local
+
+services:
+  cms:
+    build:
+      context: .
+      dockerfile: apps/cms/Dockerfile
+    env_file: apps/cms/.env
+    environment:
+      DATABASE_URI: postgres://axs:axsdev@host.docker.internal:5432/axs_cms
+      PAYLOAD_SERVER_URL: http://localhost:3001
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3001:3001"
+    volumes:
+      # Uploaded media persists across rebuilds and is shared with `pnpm dev` (same folder).
+      - ./apps/cms/media:/app/apps/cms/media
+    restart: unless-stopped
+
+  sabrina:
+    build:
+      context: .
+      dockerfile: sites/influencers/sabrina/Dockerfile
+      args:
+        CMS_URL: http://host.docker.internal:3001
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+    environment:
+      CMS_URL: http://cms:3001
+    depends_on:
+      - cms
+    ports:
+      - "3002:3000"
+    restart: unless-stopped
