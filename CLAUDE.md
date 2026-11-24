@@ -62,6 +62,25 @@ packages/cms-client/            capa fina compartida: fetch a la API + tipos de 
 packages/ui/                    (opcional) primitivas comunes, sin diseño
 ```
 
+## Forma de trabajo: expedientes forge
+
+Este repo documenta cada cambio con el formato de forge, aunque los comandos `/fg-*` no estén
+instalados. **Esta regla tiene prioridad sobre cualquier workflow global** (por ejemplo, los
+documentos `odd/tasks/` de gentle-ai): en este repo no se crean.
+
+- Cada cambio no trivial tiene su carpeta `docs/auditoria/cambios/<AAAA-MM>-<tipo>-<tema>/`:
+  - `README.md`: portada para humanos (tipo, estado, áreas afectadas, qué, por qué, alcance y, al
+    terminar, la sección `## Cierre` con lo verificado y lo diferido).
+  - `diseño.md`: solo si hay diseño técnico que explicar.
+  - `decisiones.md`: registro append-only, cada entrada con fecha + qué se decidió + por qué.
+  - `tareas.md`: checklist; se tacha una tarea solo cuando se observó su resultado.
+- Los cambios chicos (un ajuste puntual) no necesitan expediente.
+- La configuración de referencia está en `docs/auditoria/config.yaml` (TDD apagado hasta que haya
+  suite de tests) y los guardrails en `docs/auditoria/guardrails.yaml`.
+- El overview (`docs/arquitectura/overview.md`) se actualiza cuando el cambio toca arquitectura,
+  modelo de datos o roadmap.
+- La revisión de gentle-ai sigue activa para los cambios de riesgo; no reemplaza al expediente.
+
 ## Git
 
 - `main` = producción, `develop` = staging, ramas cortas `feat/`, `fix/`, `chore/` desde develop.
