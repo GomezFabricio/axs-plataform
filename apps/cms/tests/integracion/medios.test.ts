@@ -48,14 +48,20 @@ function subir(
   });
 }
 
-const RECHAZO_CONOCIDO_DE_BUSBOY = "Unexpected end of form";
+/**
+ * Los dos rechazos sin manejar que deja Payload al cortar un archivo por superar el tope: el de
+ * su propio control de tamaño y el de busboy al quedar el formulario a medias. Cuál de los dos
+ * llega, o si llegan ambos, depende del sistema: en macOS se vio el segundo y en el Linux del CI
+ * el primero.
+ */
+const RECHAZOS_CONOCIDOS_DEL_TOPE = ["File size limit has been reached", "Unexpected end of form"];
 
 /**
  * Al cortar un archivo por superar el tope, Payload responde 413 y su parser de multipart deja
- * después una promesa rechazada sin manejar ("Unexpected end of form", de busboy). Es un defecto
- * de la librería, ajeno a este CMS, pero Vitest lo cuenta como error de la corrida. Mientras dura
- * el archivo, estos listeners lo recogen en `rechazosSinManejar`; `afterAll` exige que todo lo
- * recogido sea exactamente ese mensaje, así cualquier otro rechazo inesperado sigue fallando.
+ * después alguna promesa rechazada sin manejar. Es un defecto de la librería, ajeno a este CMS,
+ * pero Vitest lo cuenta como error de la corrida. Mientras dura el archivo, estos listeners lo
+ * recogen en `rechazosSinManejar`; `afterAll` exige que todo lo recogido sea exactamente uno de
+ * los mensajes conocidos, así cualquier otro rechazo inesperado sigue fallando.
  */
 const rechazosSinManejar: string[] = [];
 let escuchasOriginales: NodeJS.UnhandledRejectionListener[] = [];
@@ -122,7 +128,7 @@ describe("medios por HTTP", () => {
 
   afterAll(() => {
     dejarDeCapturarRechazosSinManejar();
-    expect(rechazosSinManejar.filter((mensaje) => mensaje !== RECHAZO_CONOCIDO_DE_BUSBOY)).toEqual([]);
+    expect(rechazosSinManejar.filter((mensaje) => !RECHAZOS_CONOCIDOS_DEL_TOPE.includes(mensaje))).toEqual([]);
   });
 
   describe("subida de formatos permitidos", () => {

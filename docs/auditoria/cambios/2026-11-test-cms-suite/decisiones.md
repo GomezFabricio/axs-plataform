@@ -253,3 +253,16 @@ mostró lo que faltaba. Conviene repetirlo al cierre de todo cambio que toque se
 archivo se procesa antes del control de acceso. El error interno sin atender se puede provocar
 sin autenticarse. Leyendo el código de Next 16.2.9, el servidor solo lo registra y no se cae;
 falta comprobarlo con el servidor levantado, en el cambio de dependencias.
+
+## D24 — La primera corrida del CI mostró una diferencia entre macOS y Linux (2026-11-25)
+
+La primera corrida en GitHub pasó los 97 tests, pero el cierre de `medios.test.ts` falló. Al
+superar el tope de subida, en Linux el error interno sin atender de Payload (D17) llega con el
+mensaje "File size limit has been reached"; en macOS había llegado "Unexpected end of form". El
+test aceptaba solo el segundo.
+
+Se aceptan los dos mensajes, textuales. Cualquier otro error sin atender sigue haciendo fallar
+la corrida.
+
+**Por qué importa:** es el tipo de diferencia que solo aparece al correr en otro sistema, y la
+razón por la que el CI había que verlo correr antes de dar la rama por lista.
