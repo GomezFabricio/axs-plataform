@@ -39,6 +39,7 @@ export default async function preparacionGlobal(proyecto: TestProject): Promise<
   process.env["PAYLOAD_SECRET"] = SECRETO_PAYLOAD_TEST;
   Object.assign(process.env, { NODE_ENV: "test" });
 
+  let carpetaMediosCorrida: string | undefined;
   try {
     // La configuración lee las variables al cargarse: se importa después de fijarlas.
     const { default: config } = await import("@payload-config");
@@ -50,39 +51,72 @@ export default async function preparacionGlobal(proyecto: TestProject): Promise<
     } finally {
       await cerrarPayload(payload);
     }
+
+    carpetaMediosCorrida = await mkdtemp(path.join(os.tmpdir(), "axs-medios-test-"));
+
+    proyecto.provide("basePlantilla", basePlantilla);
+    proyecto.provide("prefijoBasesCorrida", prefijoBasesCorrida);
+    proyecto.provide("carpetaMediosCorrida", carpetaMediosCorrida);
   } catch (error) {
-    // Si la plantilla no llega a armarse, Vitest no recibe el cierre: se borra acá.
-    await borrarBase(basePlantilla).catch((errorAlBorrar: unknown) => {
-      throw new AggregateError(
-        [error, errorAlBorrar],
-        `No se pudo armar ${basePlantilla} y tampoco borrarla`,
-      );
-    });
-    throw error;
+    // Si la preparación falla, Vitest no recibe el cierre: lo armado hasta acá se borra ahora.
+    const carpetaCreada = carpetaMediosCorrida;
+    const errores = await intentarTodos([
+      () => borrarBase(basePlantilla),
+      ...(carpetaCreada ? [() => borrarCarpeta(carpetaCreada)] : []),
+    ]);
+    throw unirErrores([error, ...errores], `Falló la preparación de ${basePlantilla}`);
   }
-
-  const carpetaMediosCorrida = await mkdtemp(path.join(os.tmpdir(), "axs-medios-test-"));
-
-  proyecto.provide("basePlantilla", basePlantilla);
-  proyecto.provide("prefijoBasesCorrida", prefijoBasesCorrida);
-  proyecto.provide("carpetaMediosCorrida", carpetaMediosCorrida);
+  const carpetaCorrida = carpetaMediosCorrida;
 
   /**
    * Cierre de la corrida. Cada archivo borra lo suyo en su `afterAll`; esto es la red para lo que
-   * quedó, por ejemplo de un archivo que no llegó a cargar. Solo toca lo de esta corrida.
+   * quedó, por ejemplo de un archivo que no llegó a cargar. Solo toca lo de esta corrida. Cada
+   * paso corre aunque falle otro, y al final se informan todos los errores.
    */
   return async () => {
+    const errores: unknown[] = [];
+    let basesDeArchivos: string[] = [];
     try {
       const bases = await ejecutarEnServidor(
         `SELECT datname FROM pg_database WHERE starts_with(datname, '${prefijoBasesCorrida}')`,
       );
-      const basesDeArchivos = bases
+      basesDeArchivos = bases
         .map((fila) => String(fila["datname"]))
         .filter((nombre) => nombre !== basePlantilla);
-      for (const nombre of basesDeArchivos) await borrarBase(nombre);
-      await borrarBase(basePlantilla);
-    } finally {
-      await rm(carpetaMediosCorrida, { recursive: true, force: true });
+    } catch (error) {
+      errores.push(error);
+    }
+    errores.push(
+      ...(await intentarTodos([
+        ...basesDeArchivos.map((nombre) => () => borrarBase(nombre)),
+        () => borrarBase(basePlantilla),
+        () => borrarCarpeta(carpetaCorrida),
+      ])),
+    );
+    if (errores.length > 0) {
+      throw unirErrores(errores, `No se pudo limpiar todo lo de la corrida ${prefijoBasesCorrida}`);
     }
   };
+}
+
+async function borrarCarpeta(carpeta: string): Promise<void> {
+  await rm(carpeta, { recursive: true, force: true });
+}
+
+/** Corre todos los pasos aunque alguno falle y devuelve los errores, en orden. */
+async function intentarTodos(pasos: Array<() => Promise<void>>): Promise<unknown[]> {
+  const errores: unknown[] = [];
+  for (const paso of pasos) {
+    try {
+      await paso();
+    } catch (error) {
+      errores.push(error);
+    }
+  }
+  return errores;
+}
+
+/** Un solo error se informa tal cual; varios, juntos en un AggregateError. */
+function unirErrores(errores: unknown[], mensaje: string): unknown {
+  return errores.length === 1 ? errores[0] : new AggregateError(errores, mensaje);
 }
