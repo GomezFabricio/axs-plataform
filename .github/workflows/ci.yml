@@ -23,10 +23,11 @@ on:
 permissions:
   contents: read
 
-# Un push nuevo a la misma rama o PR cancela la corrida anterior que quedó superada.
+# En un PR, un push nuevo cancela la corrida anterior que quedó superada. En main y develop no se
+# cancela: cada push ahí tiene que terminar su verificación, aunque llegue otro detrás.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verificacion:
