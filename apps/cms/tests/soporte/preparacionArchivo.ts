@@ -25,8 +25,15 @@ Object.assign(process.env, { NODE_ENV: "test" });
 
 afterAll(async () => {
   // El test ya cargó las fábricas: este import devuelve el mismo módulo, con su instancia.
-  const { cerrarPayloadDeTest } = await import("./fabricas");
-  await cerrarPayloadDeTest();
-  await ejecutarEnServidor(`DROP DATABASE IF EXISTS ${baseDelArchivo}`);
-  await rm(carpetaMedios, { recursive: true, force: true });
+  // La carpeta y la base se borran aunque falle el cierre de Payload.
+  try {
+    const { cerrarPayloadDeTest } = await import("./fabricas");
+    await cerrarPayloadDeTest();
+  } finally {
+    try {
+      await ejecutarEnServidor(`DROP DATABASE IF EXISTS ${baseDelArchivo}`);
+    } finally {
+      await rm(carpetaMedios, { recursive: true, force: true });
+    }
+  }
 });

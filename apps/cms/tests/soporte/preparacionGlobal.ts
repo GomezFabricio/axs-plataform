@@ -30,20 +30,34 @@ export default async function preparacionGlobal(proyecto: TestProject): Promise<
   process.env["PAYLOAD_SECRET"] = SECRETO_PAYLOAD_TEST;
   Object.assign(process.env, { NODE_ENV: "test" });
 
-  // La configuración lee las variables al cargarse: se importa después de fijarlas.
-  const { default: config } = await import("@payload-config");
-  const payload = await getPayload({ config });
+  const borrarPlantilla = async (): Promise<void> => {
+    await ejecutarEnServidor(`DROP DATABASE IF EXISTS ${basePlantilla}`);
+  };
+
   try {
-    // El tipo genérico de Payload declara `up(args: unknown)`; las migraciones del adaptador
-    // Postgres reciben `MigrateUpArgs`, que es lo que Payload les pasa al correrlas.
-    await payload.db.migrate({ migrations: migrations as unknown as Migration[] });
-  } finally {
-    await cerrarPayload(payload);
+    // La configuración lee las variables al cargarse: se importa después de fijarlas.
+    const { default: config } = await import("@payload-config");
+    const payload = await getPayload({ config });
+    try {
+      // El tipo genérico de Payload declara `up(args: unknown)`; las migraciones del adaptador
+      // Postgres reciben `MigrateUpArgs`, que es lo que Payload les pasa al correrlas.
+      await payload.db.migrate({ migrations: migrations as unknown as Migration[] });
+    } finally {
+      await cerrarPayload(payload);
+    }
+  } catch (error) {
+    // Si la plantilla no llega a armarse, Vitest no recibe el cierre: se borra acá. El pid
+    // cambia en cada corrida, así que el DROP del arranque siguiente no la encontraría.
+    await borrarPlantilla().catch((errorAlBorrar: unknown) => {
+      throw new AggregateError(
+        [error, errorAlBorrar],
+        `No se pudo armar ${basePlantilla} y tampoco borrarla`,
+      );
+    });
+    throw error;
   }
 
   proyecto.provide("basePlantilla", basePlantilla);
 
-  return async () => {
-    await ejecutarEnServidor(`DROP DATABASE IF EXISTS ${basePlantilla}`);
-  };
+  return borrarPlantilla;
 }
