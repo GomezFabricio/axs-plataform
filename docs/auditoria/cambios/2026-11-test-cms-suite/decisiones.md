@@ -121,3 +121,86 @@ cambio. Las críticas están en `next` (5) y `payload` (4). Este cambio no las a
 ADR-003 fija sus versiones. Conviene hacerlo con la suite ya andando, como cambio aparte:
 `chore: actualizar dependencias`, inmediatamente después de este. Hasta entonces el CI corre la
 auditoría en un job que informa pero no bloquea.
+
+## D14 — La validación se hace regla por regla y cada test usa sus propios datos (2026-11-25)
+
+Amplía D7. Para cada regla del código se hace un ciclo aparte: se rompe esa sola regla, se
+confirma que falle al menos un test que la nombra y se revierte. Los tests que editan o borran
+crean dentro del mismo test los datos que tocan; los datos compartidos son solo de lectura.
+
+**Por qué:** en la tarea 3 se había roto una sola regla de nueve, y con esa regla rota un test
+siguió en verde porque otro test ya había borrado el dato que leía. Un test que comparte datos
+que otro modifica puede pasar por la razón equivocada.
+
+## D15 — Hallazgos del aislamiento entre clientas: sin defectos, con notas para el proyecto 2 (2026-11-25)
+
+Todo lo que debía rechazarse se rechaza. Lo que conviene saber antes de reemplazar los roles:
+
+- Leer por id un documento ajeno responde "no encontrado"; editarlo o borrarlo responde
+  "prohibido". La diferencia deja saber si un identificador existe.
+- El acceso por campo descarta en silencio el valor no permitido (`clienta`, `rol`) en vez de
+  rechazar la operación entera.
+- En `Usuarios`, leer y editar usan el filtro por clienta: una editora puede leer y editar a
+  cualquier usuaria de su misma clienta, no solo a sí misma. Hoy hay una usuaria por clienta;
+  importa cuando las clientas puedan delegar.
+- El campo `clienta` de `Medios` tiene dos defensas: el hook cubre solo el alta y el acceso por
+  campo es la única defensa al editar.
+
+**Por qué se registra:** son decisiones de diseño que el motor de permisos tiene que tomar a
+conciencia, no heredar por accidente.
+
+## D16 — La lista de formatos permitidos es la única barrera contra archivos no válidos (2026-11-25)
+
+Con `mimeTypes` puesto en `Medios.ts`, Payload revisa el contenido real del archivo y rechaza
+un SVG aunque se llame `foto.png` y declare ser PNG. Al quitar `mimeTypes` a propósito, el GIF,
+el SVG y el SVG disfrazado se aceptaron los tres.
+
+**Por qué importa:** detrás de esa lista no hay otra capa. Los archivos se sirven desde el
+origen del CMS, así que un SVG aceptado puede llevar scripts. La lista no se quita ni se amplía
+sin revisar este punto. Los tests de la tarea 4 la cubren.
+
+## D17 — Superar el tope de 10 MB deja un error interno sin atender en Payload 3.85.1 (2026-11-25)
+
+El CMS rechaza bien el archivo (responde 413 y no guarda nada). Pero después de responder, el
+lector de formularios de Payload deja una promesa rechazada sin manejar ("Unexpected end of
+form"). Los tests la capturan y exigen que sea exactamente esa.
+
+**Sin resolver:** qué efecto tiene en el servidor real (si solo queda en el registro o si puede
+tumbar el proceso). Se investiga en el cambio de actualización de dependencias. Si una versión
+nueva de Payload lo arregla, el test del 413 tarda 10 segundos más: es la señal para quitar el
+rodeo.
+
+## D18 — El alta de usuarios tiene dos defensas y cada una tiene su test (2026-11-25)
+
+El comentario de cabecera de `Usuarios.ts` dice que el alta por HTTP saltea `access.create`. En
+Payload 3.85.1 no es así: `access.create` sí se evalúa. Junto con el hook `beforeChange` son dos
+defensas redundantes y cualquiera de las dos alcanza para rechazar el alta.
+
+Los tests por HTTP comprueban el resultado, y además hay un test que fija cada defensa por
+separado.
+
+**Por qué:** el proyecto 2 reescribe las dos. Con solo los tests por HTTP, romper una sola
+pasaría inadvertido. Corregir el comentario de `Usuarios.ts` queda para ese proyecto, porque
+este cambio no toca el código del CMS.
+
+## D19 — Con el contenido vacío, el endpoint público responde 422 (2026-11-25)
+
+`GET /api/sitios/sabrina` sobre una base sin contenido cargado responde 422 con
+`{ "error": "Contenido del sitio incompleto" }`. El plan preveía 200 o 500. El test fija ese
+comportamiento y comprueba que la respuesta no filtra detalle interno.
+
+**Por qué importa:** es lo que va a recibir un sitio recién dado de alta antes de que se le
+cargue contenido. El proyecto de alta con vista previa tiene que contemplarlo.
+
+## D20 — Deuda: la salida de los tests no está limpia (2026-11-25)
+
+Dos fuentes de ruido que no vienen de los tests:
+
+- Un aviso de `pg` al correr la carga inicial ("client.query() when the client is already
+  executing a query"). Indica consultas simultáneas sobre una misma conexión y dejaría de
+  funcionar en `pg` 9.
+- Los registros de Payload por cada rechazo esperado.
+
+**Por qué no se arregla acá:** el primero viene de Payload o de la carga inicial y se revisa al
+actualizar dependencias. El segundo se resuelve con un registro silencioso en el arnés; queda
+para cuando moleste.
