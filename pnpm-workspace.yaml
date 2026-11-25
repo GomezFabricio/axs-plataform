@@ -2,3 +2,8 @@ packages:
   - "apps/*"
   - "sites/**"
   - "packages/*"
+
+# D12: ninguna versión publicada hace menos de dos semanas, también en las dependencias
+# transitivas. En minutos (14 días). Se aplica al resolver; una instalación con
+# --frozen-lockfile instala lo que fija el lockfile (comprobado con pnpm 10.33.0).
+minimumReleaseAge: 20160
