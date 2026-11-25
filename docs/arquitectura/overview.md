@@ -81,19 +81,22 @@ Colecciones previstas en `docs/esquema.sql`, a implementar en Fase 2:
 |---|---|---|
 | Fase 1 | Completada (2026-06-22) | CMS levantado, Sabrina como primer tenant, endpoint `/api/sitios/sabrina` funcionando, sitio cableado al fetch real. |
 | Fase 2.1 | Completada (2026-06-24) | Baseline de migraciones de produccion y hardening del CMS: authz multi-tenant en colecciones, campos y global; endpoint publico con rate limit y errores sin detalle. Expediente: `docs/auditoria/cambios/2026-06-chore-hardening-cms-deploy/`. |
-| Fase 2.2 | En pausa (2026-11-25) | Deploy. Hecho: Dockerfiles multi-stage del CMS y de Sabrina, `compose.local.yaml` para levantar ambos en local. Falta: compose de produccion, VPS + Coolify, dominio. Se retoma como proyecto 7 del roadmap nuevo. |
+| Fase 2.2 | En pausa (2026-11-25) | Deploy. Hecho: Dockerfiles multi-stage del CMS y de Sabrina, `compose.local.yaml` para levantar ambos en local. Falta: compose de produccion, VPS + Coolify, dominio. Se retoma como proyecto 8 del roadmap nuevo. |
 
 **Roadmap desde 2026-11-25.** El modelo de negocio cambio (`docs/modelo-de-negocio.md`) y reemplaza a las fases 2.3 y 3 anteriores. Se construye el producto completo y se publica al final.
 
 | # | Proyecto | Estado | Descripcion |
 |---|---|---|---|
 | 1 | Tests del CMS | Pendiente | La suite que hoy falta, para poder trabajar con test primero. |
-| 2 | Biblioteca de secciones | Pendiente | Secciones con variantes, orden, paletas y estilo de animacion; borrador, vista previa y publicacion; el sitio de Sabrina rehecho encima con su diseno. Requiere un ADR nuevo que reemplace al ADR-002. |
-| 3 | Molde de marca personal | Pendiente | Catalogo de secciones del rubro, siluetas, limite de lugares. |
-| 4 | Suscripciones y cobros | Pendiente | Planes, extras, cupones, cobro automatico y por transferencia, secuencia de impago, reportes. Las tablas `suscripciones`, `mantenimientos` y `pagos` de `docs/esquema.sql` se revisan. |
-| 5 | Alta con vista previa | Pendiente | Formulario, sitio generado, pago, accesos por correo, primeros pasos. |
-| 6 | Sitio de Axs | Pendiente | Vidriera con planes y embudo. |
-| 7 | Publicacion | Pendiente | Deploy de produccion, subdominios por sitio, dominios propios. Continua `docs/auditoria/cambios/2026-11-chore-deploy-docker/`. |
+| 2 | Perfiles y permisos | Pendiente | Motor de permisos (permiso, perfil, varios perfiles por usuario) en lugar de los roles fijos `super_admin` y `tenant_editor`. El aislamiento por clienta se mantiene aparte. |
+| 3 | Biblioteca de secciones | Pendiente | Secciones con variantes, orden, paletas y estilo de animacion; borrador, vista previa y publicacion; el sitio de Sabrina rehecho encima con su diseno. Requiere un ADR nuevo que reemplace al ADR-002. |
+| 4 | Molde de marca personal | Pendiente | Catalogo de secciones del rubro, siluetas, limite de lugares. |
+| 5 | Suscripciones y cobros | Pendiente | Planes, extras, cupones, cobro automatico y por transferencia, secuencia de impago, reportes. Las tablas `suscripciones`, `mantenimientos` y `pagos` de `docs/esquema.sql` se revisan. |
+| 6 | Alta con vista previa | Pendiente | Formulario, sitio generado, pago, accesos por correo, primeros pasos. |
+| 7 | Sitio de Axs | Pendiente | Vidriera con planes y embudo. |
+| 8 | Publicacion | Pendiente | Deploy de produccion, subdominios por sitio, dominios propios. Continua `docs/auditoria/cambios/2026-11-chore-deploy-docker/`. |
+
+Regla transversal: las decisiones de negocio (precios, plazos, limites) son parametros editables desde el panel de Axs; cada proyecto declara los suyos.
 
 ## Decisiones de arquitectura
 

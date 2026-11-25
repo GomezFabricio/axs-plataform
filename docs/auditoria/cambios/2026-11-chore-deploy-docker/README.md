@@ -1,7 +1,7 @@
 # Deploy: imágenes Docker del CMS y de Sabrina
 
 **Tipo:** chore
-**Estado:** en pausa desde 2026-11-25 (hecho el entorno local; producción se retoma como proyecto 7 de `docs/modelo-de-negocio.md`)
+**Estado:** en pausa desde 2026-11-25 (hecho el entorno local; producción se retoma como proyecto 8 de `docs/modelo-de-negocio.md`)
 **Nivel de ceremonia:** Rápido. Expediente registrado después de la parte local.
 **Estructural:** false
 **Commit:** `dc525f0` en `feat/cms-docker-e-imagenes`

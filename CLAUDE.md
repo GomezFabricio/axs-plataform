@@ -24,6 +24,14 @@ Diseñar esas opciones es código (trabajo de Axs). **Si algo de contenido oblig
 mal:** todo el contenido visible llega desde la API del CMS (vía `packages/cms-client`), nunca se
 escribe en el componente.
 
+**Parámetros:** las decisiones de negocio que cambian sin que cambie el producto (precios,
+plazos, límites, textos de correos) no se escriben en el código: son parámetros editables desde
+el panel de Axs. Cada cambio declara los suyos.
+
+**Permisos:** el panel usa perfiles basados en permisos (`docs/modelo-de-negocio.md`, sección
+3.1). Desde que exista ese motor, ninguna comprobación nueva pregunta por un rol fijo. El
+aislamiento entre clientas va aparte y ningún perfil lo saltea.
+
 ## Stack (cerrado, no se cambia sin discutir)
 
 - **Next.js (App Router) + TypeScript estricto** en CMS y sitios.
