@@ -1,4 +1,4 @@
-import { getPayload } from "payload";
+import { Forbidden, ValidationError, getPayload } from "payload";
 import type { Payload } from "payload";
 import sharp from "sharp";
 import config from "@payload-config";
@@ -125,8 +125,10 @@ export async function intentarVolverseAdministradora(usuaria: UsuarioDeTest): Pr
       overrideAccess: false,
       user: { ...usuaria, collection: "usuarios" },
     });
-  } catch {
-    // Rechazado: es lo esperado.
+  } catch (error) {
+    // Rechazado por acceso o por validación: es lo esperado. Cualquier otro error (un hook o un
+    // esquema roto) significa que el intento no se hizo y el test no probaría nada.
+    if (!(error instanceof Forbidden) && !(error instanceof ValidationError)) throw error;
   }
 }
 

@@ -1,4 +1,4 @@
-import { Forbidden, NotFound, ValidationError } from "payload";
+import { Forbidden, NotFound } from "payload";
 import type { Payload } from "payload";
 import { beforeAll, describe, expect, it } from "vitest";
 import { seedSabrina } from "@/seed/sabrina";
@@ -97,13 +97,17 @@ describe("aislamiento entre clientas", () => {
     });
 
     it("no puede editar ni la suya ni otra clienta", async () => {
-      for (const clienta of [clientaA, clientaB]) {
+      // Clientas e editora propias del test: si la regla cayera, no se pisan las fixtures de los demás.
+      const propia = await crearClienta();
+      const ajena = await crearClienta();
+      const editora = await crearEditora(propia);
+      for (const clienta of [propia, ajena]) {
         await expect(
           payload.update({
             collection: "clientas",
             id: clienta.id,
             data: { nombre: "Nombre cambiado" },
-            ...como(editoraA),
+            ...como(editora),
           }),
         ).rejects.toBeInstanceOf(Forbidden);
         const actual = await payload.findByID({
@@ -116,9 +120,12 @@ describe("aislamiento entre clientas", () => {
     });
 
     it("no puede borrar ni la suya ni otra clienta", async () => {
-      for (const clienta of [clientaA, clientaB]) {
+      const propia = await crearClienta();
+      const ajena = await crearClienta();
+      const editora = await crearEditora(propia);
+      for (const clienta of [propia, ajena]) {
         await expect(
-          payload.delete({ collection: "clientas", id: clienta.id, ...como(editoraA) }),
+          payload.delete({ collection: "clientas", id: clienta.id, ...como(editora) }),
         ).rejects.toBeInstanceOf(Forbidden);
         const sigue = await payload.findByID({
           collection: "clientas",
@@ -145,26 +152,31 @@ describe("aislamiento entre clientas", () => {
     });
 
     it("no puede editar a la editora de otra clienta", async () => {
+      const ajena = await crearEditora(clientaB);
       await expect(
         payload.update({
           collection: "usuarios",
-          id: editoraB.id,
+          id: ajena.id,
           data: { email: "cambiado@prueba.test" },
           ...como(editoraA),
         }),
       ).rejects.toBeInstanceOf(Forbidden);
       const actual = await payload.findByID({
         collection: "usuarios",
-        id: editoraB.id,
+        id: ajena.id,
         overrideAccess: true,
       });
-      expect(actual.email).toBe(editoraB.email);
+      expect(actual.email).toBe(ajena.email);
     });
 
     it("no puede borrar un usuario", async () => {
-      for (const usuario of [editoraA, editoraB]) {
+      // Usuarias propias del test: la actora, una compañera de su clienta y una de otra clienta.
+      const actora = await crearEditora(clientaA);
+      const companiera = await crearEditora(clientaA);
+      const ajena = await crearEditora(clientaB);
+      for (const usuario of [actora, companiera, ajena]) {
         await expect(
-          payload.delete({ collection: "usuarios", id: usuario.id, ...como(editoraA) }),
+          payload.delete({ collection: "usuarios", id: usuario.id, ...como(actora) }),
         ).rejects.toBeInstanceOf(Forbidden);
         const sigue = await payload.findByID({
           collection: "usuarios",
@@ -191,32 +203,34 @@ describe("aislamiento entre clientas", () => {
     });
 
     it("no puede editar el medio de otra clienta", async () => {
+      const ajeno = await subirMedio(clientaB, "Foto ajena para editar");
       await expect(
         payload.update({
           collection: "medios",
-          id: medioB.id,
+          id: ajeno.id,
           data: { textoAlternativo: "Texto cambiado" },
           ...como(editoraA),
         }),
       ).rejects.toBeInstanceOf(Forbidden);
       const actual = await payload.findByID({
         collection: "medios",
-        id: medioB.id,
+        id: ajeno.id,
         overrideAccess: true,
       });
-      expect(actual.textoAlternativo).toBe("Foto de B");
+      expect(actual.textoAlternativo).toBe("Foto ajena para editar");
     });
 
     it("no puede borrar el medio de otra clienta, que sigue existiendo", async () => {
+      const ajeno = await subirMedio(clientaB, "Foto ajena para borrar");
       await expect(
-        payload.delete({ collection: "medios", id: medioB.id, ...como(editoraA) }),
+        payload.delete({ collection: "medios", id: ajeno.id, ...como(editoraA) }),
       ).rejects.toBeInstanceOf(Forbidden);
       const sigue = await payload.findByID({
         collection: "medios",
-        id: medioB.id,
+        id: ajeno.id,
         overrideAccess: true,
       });
-      expect(sigue.id).toBe(medioB.id);
+      expect(sigue.id).toBe(ajeno.id);
     });
 
     it("un medio que sube sin indicar clienta queda asignado a la suya", async () => {
@@ -381,6 +395,7 @@ describe("aislamiento entre clientas", () => {
 });
 
 describe("aislamiento del contenido del sitio", () => {
+  let sabrina: Clienta;
   let editoraSabrina: UsuarioDeTest;
   let editoraOtra: UsuarioDeTest;
   let medioDeOtra: Medio;
@@ -394,7 +409,7 @@ describe("aislamiento del contenido del sitio", () => {
       limit: 1,
       overrideAccess: true,
     });
-    const sabrina = docs[0]!;
+    sabrina = docs[0]!;
     const otra = await crearClienta({ slug: "aislamiento-otra" });
     editoraSabrina = await crearEditora(sabrina);
     editoraOtra = await crearEditora(otra);
@@ -423,6 +438,7 @@ describe("aislamiento del contenido del sitio", () => {
   });
 
   it("la editora de otra clienta no puede editar el contenido", async () => {
+    const antes = await payload.findGlobal({ slug: "sitio-sabrina", overrideAccess: true });
     await expect(
       payload.updateGlobal({
         slug: "sitio-sabrina",
@@ -431,7 +447,7 @@ describe("aislamiento del contenido del sitio", () => {
       }),
     ).rejects.toBeInstanceOf(Forbidden);
     const guardado = await payload.findGlobal({ slug: "sitio-sabrina", overrideAccess: true });
-    expect(guardado.config.nombre).not.toBe("Nombre pisado por otra clienta");
+    expect(guardado.config.nombre).toBe(antes.config.nombre);
   });
 
   it("sin sesión no se puede leer el contenido por la API local con acceso activo", async () => {
@@ -452,12 +468,30 @@ describe("aislamiento del contenido del sitio", () => {
         data: { sobreMi: { imagen: medioDeOtra.id } },
         ...como(editoraSabrina),
       }),
-    ).rejects.toBeInstanceOf(ValidationError);
+    ).rejects.toMatchObject({
+      name: "ValidationError",
+      data: { errors: [expect.objectContaining({ path: "sobreMi.imagen" })] },
+    });
     const despues = await payload.findGlobal({
       slug: "sitio-sabrina",
       depth: 0,
       overrideAccess: true,
     });
     expect(despues.sobreMi.imagen).toBe(antes.sobreMi.imagen);
+  });
+
+  it("sí se puede poner en una sección una foto de la propia clienta", async () => {
+    const propio = await subirMedio(sabrina, "Foto de Sabrina para el control positivo");
+    await payload.updateGlobal({
+      slug: "sitio-sabrina",
+      data: { sobreMi: { imagen: propio.id } },
+      ...como(editoraSabrina),
+    });
+    const guardado = await payload.findGlobal({
+      slug: "sitio-sabrina",
+      depth: 0,
+      overrideAccess: true,
+    });
+    expect(guardado.sobreMi.imagen).toBe(propio.id);
   });
 });
