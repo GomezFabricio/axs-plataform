@@ -110,6 +110,26 @@ export async function crearAdministradorAxs(): Promise<UsuarioDeTest> {
   return crearUsuario({ rol: "super_admin", clienta: null });
 }
 
+/**
+ * La usuaria intenta darse a sí misma acceso total: edita su propio documento, con las reglas de
+ * acceso activas, pidiendo el rol de administradora. Si Payload rechaza el cambio, lo ignora: el
+ * test comprueba el efecto, no cómo se rechazó.
+ */
+export async function intentarVolverseAdministradora(usuaria: UsuarioDeTest): Promise<void> {
+  const payload = await obtenerPayloadDeTest();
+  try {
+    await payload.update({
+      collection: "usuarios",
+      id: usuaria.id,
+      data: { rol: "super_admin", clienta: null },
+      overrideAccess: false,
+      user: { ...usuaria, collection: "usuarios" },
+    });
+  } catch {
+    // Rechazado: es lo esperado.
+  }
+}
+
 export async function subirMedio(clienta: Clienta, textoAlternativo?: string): Promise<Medio> {
   const payload = await obtenerPayloadDeTest();
   const imagen = imagenDePrueba();
