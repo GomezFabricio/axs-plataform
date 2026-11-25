@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type { Payload } from "payload";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { seedSabrina } from "@/seed/sabrina";
 import type { Clienta, Medio } from "@/payload-types";
 import { crearClienta, crearEditora, imagenDePrueba, obtenerPayloadDeTest } from "../soporte/fabricas";
@@ -48,30 +48,40 @@ function subir(
   });
 }
 
+const RECHAZO_CONOCIDO_DE_BUSBOY = "Unexpected end of form";
+
 /**
  * Al cortar un archivo por superar el tope, Payload responde 413 y su parser de multipart deja
  * después una promesa rechazada sin manejar ("Unexpected end of form", de busboy). Es un defecto
- * de la librería, ajeno a este CMS, pero Vitest lo cuenta como error de la corrida. Esta función
- * lo captura mientras corre `accion` y devuelve sus mensajes; así el test sigue fallando ante
- * cualquier otro rechazo inesperado.
+ * de la librería, ajeno a este CMS, pero Vitest lo cuenta como error de la corrida. Mientras dura
+ * el archivo, estos listeners lo recogen en `rechazosSinManejar`; `afterAll` exige que todo lo
+ * recogido sea exactamente ese mensaje, así cualquier otro rechazo inesperado sigue fallando.
  */
-async function capturandoRechazosSinManejar<T>(
-  accion: () => Promise<T>,
-): Promise<{ resultado: T; rechazos: string[] }> {
-  const escuchasOriginales = process.listeners("unhandledRejection");
-  const rechazos: string[] = [];
+const rechazosSinManejar: string[] = [];
+let escuchasOriginales: NodeJS.UnhandledRejectionListener[] = [];
+
+function empezarACapturarRechazosSinManejar(): void {
+  escuchasOriginales = process.rawListeners("unhandledRejection") as NodeJS.UnhandledRejectionListener[];
   process.removeAllListeners("unhandledRejection");
   process.on("unhandledRejection", (motivo) => {
-    rechazos.push(motivo instanceof Error ? motivo.message : String(motivo));
+    rechazosSinManejar.push(motivo instanceof Error ? motivo.message : String(motivo));
   });
-  try {
-    const resultado = await accion();
-    // El rechazo llega después de la respuesta: se espera a que el parser termine.
-    await new Promise((resolver) => setTimeout(resolver, 300));
-    return { resultado, rechazos };
-  } finally {
-    process.removeAllListeners("unhandledRejection");
-    for (const escucha of escuchasOriginales) process.on("unhandledRejection", escucha);
+}
+
+function dejarDeCapturarRechazosSinManejar(): void {
+  process.removeAllListeners("unhandledRejection");
+  for (const escucha of escuchasOriginales) process.on("unhandledRejection", escucha);
+}
+
+/**
+ * Espera a que el parser termine de cortar la subida, que se nota porque llega su rechazo. No es
+ * una pausa fija: vuelve apenas llega, y solo si no llega (por ejemplo, si la librería arregla
+ * el defecto) sigue hasta el tope y lo da por terminado.
+ */
+async function esperarCierreDelParser(rechazosPrevios: number): Promise<void> {
+  const limite = Date.now() + 10_000;
+  while (rechazosSinManejar.length <= rechazosPrevios && Date.now() < limite) {
+    await new Promise((resolver) => setTimeout(resolver, 20));
   }
 }
 
@@ -91,6 +101,13 @@ describe("medios por HTTP", () => {
     editora = await crearEditora(clienta);
   });
 
+  beforeAll(empezarACapturarRechazosSinManejar);
+
+  afterAll(() => {
+    dejarDeCapturarRechazosSinManejar();
+    expect(rechazosSinManejar.filter((mensaje) => mensaje !== RECHAZO_CONOCIDO_DE_BUSBOY)).toEqual([]);
+  });
+
   describe("subida de formatos permitidos", () => {
     it.each(["png", "jpeg", "webp", "avif"] as const)(
       "acepta una imagen %s y guarda el archivo",
@@ -106,15 +123,20 @@ describe("medios por HTTP", () => {
   });
 
   describe("subida rechazada", () => {
-    /** Sube el archivo y comprueba que no quedó ni documento ni archivo nuevo. */
+    /**
+     * Sube el archivo (con sesión, salvo `sinSesion`) y comprueba que no quedó ni documento ni
+     * archivo nuevo. `esperarAntesDeContar` deja terminar trabajo posterior a la respuesta antes
+     * de mirar la base y el disco.
+     */
     async function subirYVerificarRechazo(
       archivo: { nombre: string; tipo: string; contenido: Buffer },
-      subida: () => Promise<Response> = () => subir(archivo, editora),
+      opciones?: { sinSesion?: boolean; esperarAntesDeContar?: () => Promise<void> },
     ): Promise<Response> {
       const documentosAntes = await contarMedios();
       const archivosAntes = archivosEnDisco();
 
-      const respuesta = await subida();
+      const respuesta = await subir(archivo, opciones?.sinSesion ? undefined : editora);
+      await opciones?.esperarAntesDeContar?.();
 
       expect(respuesta.status).not.toBe(201);
       expect(await contarMedios()).toBe(documentosAntes);
@@ -146,26 +168,22 @@ describe("medios por HTTP", () => {
       async () => {
         const demasiadoGrande = imagenDePrueba({ tipo: "png", bytes: 10_000_001 });
         expect(demasiadoGrande.contenido.length).toBe(10_000_001);
-        let respuesta: Response | undefined;
-        const { rechazos } = await capturandoRechazosSinManejar(async () => {
-          respuesta = await subirYVerificarRechazo(demasiadoGrande);
+        const rechazosPrevios = rechazosSinManejar.length;
+
+        const respuesta = await subirYVerificarRechazo(demasiadoGrande, {
+          esperarAntesDeContar: () => esperarCierreDelParser(rechazosPrevios),
         });
 
-        expect(respuesta?.status).toBe(413);
-        expect(rechazos.every((mensaje) => mensaje === "Unexpected end of form")).toBe(true);
+        expect(respuesta.status).toBe(413);
       },
       TIEMPO_SUBIDA_GRANDE,
     );
 
     it("rechaza la subida sin sesión con 403", async () => {
-      const documentosAntes = await contarMedios();
-      const archivosAntes = archivosEnDisco();
-
-      const respuesta = await subir(imagenDePrueba({ tipo: "png" }));
-
+      const respuesta = await subirYVerificarRechazo(imagenDePrueba({ tipo: "png" }), {
+        sinSesion: true,
+      });
       expect(respuesta.status).toBe(403);
-      expect(await contarMedios()).toBe(documentosAntes);
-      expect(archivosEnDisco()).toEqual(archivosAntes);
     });
   });
 
