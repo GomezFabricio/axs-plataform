@@ -9,6 +9,8 @@
     "start": "next start --port 3001",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "cms:seed": "payload run src/seed/index.ts",
     "migrate": "payload migrate",
     "migrate:create": "payload migrate:create",
@@ -30,10 +32,13 @@
   },
   "devDependencies": {
     "@types/node": "26.0.0",
+    "@types/pg": "8.20.0",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.9",
-    "typescript": "6.0.3"
+    "pg": "8.20.0",
+    "typescript": "6.0.3",
+    "vitest": "5.1.2"
   }
 }

@@ -12,6 +12,7 @@
     "sabrina:build": "pnpm --filter @axs/sabrina build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
     "audit": "pnpm audit"
   },
   "devDependencies": {

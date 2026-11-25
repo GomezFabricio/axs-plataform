@@ -11,6 +11,7 @@
 .claude
 docs
 apps/cms/media
+apps/cms/tests
 sites/**/uploads
 *.png
 *.jpeg
