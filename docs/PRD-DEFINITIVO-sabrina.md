@@ -2,6 +2,11 @@
 
 *Fuente única de verdad para Claude Code.*
 
+> **Nota (2026-11-25):** la parte de negocio de este documento quedó reemplazada por
+> `docs/modelo-de-negocio.md`: los planes, qué puede editar la clienta, mantenimientos, cobro y
+> alta de clientas. Este PRD sigue valiendo para el diseño del sitio de Sabrina, el stack y las
+> convenciones. Si los dos documentos se contradicen, manda el modelo de negocio.
+
 > **El modelo:** un **CMS headless compartido** gestiona el contenido de todas las clientas en una base de datos y lo sirve por **API (con DTOs)**. Cada clienta tiene su **sitio propio y único**, diseñado a medida, que consume esa API y **renderiza el contenido como quiera**. Sabrina es el primer sitio.
 >
 > **El límite:** la clienta edita **contenido** (textos, descripciones, precios, fotos) desde el panel; la **estructura y el diseño** son código a medida (trabajo de Axs, el "cambio estructural" del mantenimiento).

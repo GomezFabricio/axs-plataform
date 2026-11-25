@@ -2,7 +2,7 @@
 
 ## Problema y proposito
 
-Axs construye sitios web a medida para clientas independientes (influencers, restaurantes, institutos, etc.). El problema central es que cada clienta necesita poder editar su propio contenido (textos, precios, fotos) sin depender de Axs para cada cambio, mientras que el diseno y la estructura del sitio permanecen bajo control de Axs.
+Axs vende sitios web por suscripcion a clientas independientes (influencers, restaurantes, etc.), en dos planes: generico (molde por rubro) y a medida (diseno propio). El problema central es que cada clienta necesita poder editar su propio contenido (textos, precios, fotos) y elegir entre opciones ya disenadas (variantes de seccion, orden, paleta) sin depender de Axs para cada cambio. Disenar esas opciones es trabajo de Axs. El modelo de negocio esta en `docs/modelo-de-negocio.md`.
 
 La solucion es un **CMS headless compartido** que gestiona el contenido de todas las clientas en una sola base de datos y lo sirve por API con DTOs tipados. Cada clienta tiene su **sitio a medida** que consume esa API y renderiza el contenido con su diseno propio.
 
@@ -81,9 +81,19 @@ Colecciones previstas en `docs/esquema.sql`, a implementar en Fase 2:
 |---|---|---|
 | Fase 1 | Completada (2026-06-22) | CMS levantado, Sabrina como primer tenant, endpoint `/api/sitios/sabrina` funcionando, sitio cableado al fetch real. |
 | Fase 2.1 | Completada (2026-06-24) | Baseline de migraciones de produccion y hardening del CMS: authz multi-tenant en colecciones, campos y global; endpoint publico con rate limit y errores sin detalle. Expediente: `docs/auditoria/cambios/2026-06-chore-hardening-cms-deploy/`. |
-| Fase 2.2 | En curso (2026-11-23) | Deploy. Hecho: Dockerfiles multi-stage del CMS y de Sabrina, `compose.local.yaml` para levantar ambos en local. Falta: compose de produccion, VPS + Coolify, dominio. |
-| Fase 2.3 | Pendiente | Mantenimientos + pagos (`suscripciones`, `mantenimientos`, `pagos` + MercadoPago). |
-| Fase 3 | Pendiente | Onboarding de clientas nuevas. Cada clienta nueva = nuevo `sites/<rubro>/<clienta>/` + tenant en el CMS. |
+| Fase 2.2 | En pausa (2026-11-25) | Deploy. Hecho: Dockerfiles multi-stage del CMS y de Sabrina, `compose.local.yaml` para levantar ambos en local. Falta: compose de produccion, VPS + Coolify, dominio. Se retoma como proyecto 7 del roadmap nuevo. |
+
+**Roadmap desde 2026-11-25.** El modelo de negocio cambio (`docs/modelo-de-negocio.md`) y reemplaza a las fases 2.3 y 3 anteriores. Se construye el producto completo y se publica al final.
+
+| # | Proyecto | Estado | Descripcion |
+|---|---|---|---|
+| 1 | Tests del CMS | Pendiente | La suite que hoy falta, para poder trabajar con test primero. |
+| 2 | Biblioteca de secciones | Pendiente | Secciones con variantes, orden, paletas y estilo de animacion; borrador, vista previa y publicacion; el sitio de Sabrina rehecho encima con su diseno. Requiere un ADR nuevo que reemplace al ADR-002. |
+| 3 | Molde de marca personal | Pendiente | Catalogo de secciones del rubro, siluetas, limite de lugares. |
+| 4 | Suscripciones y cobros | Pendiente | Planes, extras, cupones, cobro automatico y por transferencia, secuencia de impago, reportes. Las tablas `suscripciones`, `mantenimientos` y `pagos` de `docs/esquema.sql` se revisan. |
+| 5 | Alta con vista previa | Pendiente | Formulario, sitio generado, pago, accesos por correo, primeros pasos. |
+| 6 | Sitio de Axs | Pendiente | Vidriera con planes y embudo. |
+| 7 | Publicacion | Pendiente | Deploy de produccion, subdominios por sitio, dominios propios. Continua `docs/auditoria/cambios/2026-11-chore-deploy-docker/`. |
 
 ## Decisiones de arquitectura
 
