@@ -1,5 +1,6 @@
-import type { Payload } from "payload";
+import type { Access, Payload } from "payload";
 import { beforeAll, describe, expect, it } from "vitest";
+import { Usuarios } from "@/collections/Usuarios";
 import type { Clienta, Usuario } from "@/payload-types";
 import {
   crearAdministradorAxs,
@@ -7,14 +8,14 @@ import {
   crearEditora,
   obtenerPayloadDeTest,
 } from "../soporte/fabricas";
+import type { UsuarioDeTest } from "../soporte/fabricas";
 import { pedir } from "../soporte/http";
 
 /**
- * Alta de usuarios e inicio de sesión por HTTP. El alta se prueba en la capa REST porque el
- * registro de una colección de autenticación tiene su propio camino (el comentario de Usuarios
- * dice que saltea `access.create`). Medido con Payload 3.85.1, el alta se rechaza aunque se
- * quite cualquiera de las dos defensas (`access.create` o el hook `beforeChange`); solo con
- * las dos quitadas el alta anónima pasa. Estos tests fijan el resultado, no cuál lo logra.
+ * Alta de usuarios e inicio de sesión por HTTP. El alta se rechaza sin sesión y para una
+ * editora, y solo la administradora de Axs puede hacerla. Cada defensa del alta (la regla
+ * `access.create` y el hook `beforeChange` de Usuarios) también se fija por separado, con su
+ * propio test, para que una regresión de una sola no quede tapada por la otra.
  *
  * Cada test crea los usuarios que necesita con correos propios, y todo rechazo comprueba el
  * estado y también el efecto: que no quedó ningún usuario con ese correo.
@@ -101,6 +102,48 @@ describe("usuarios por HTTP", () => {
     });
   });
 
+  describe("cada defensa del alta por separado", () => {
+    it("el hook rechaza el alta aun sin reglas de acceso y sin usuario", async () => {
+      const correo = correoNuevo();
+
+      // Con overrideAccess el control de acceso no se evalúa: solo el hook puede rechazar.
+      await expect(
+        payload.create({
+          collection: "usuarios",
+          // Como en el alta por HTTP, solo se manda correo y clave: el rol lo cubre el valor por
+          // defecto de la colección, que la Local API no conoce al tipar `data`.
+          data: { email: correo, password: CLAVE_NUEVA } as Omit<Usuario, "id" | "createdAt" | "updatedAt">,
+          overrideAccess: true,
+        }),
+      ).rejects.toThrow();
+
+      expect(await usuariosConCorreo(correo)).toHaveLength(0);
+    });
+
+    describe("regla access.create de la colección", () => {
+      /** Evalúa la regla con el usuario dado. La regla solo lee `req.user`. */
+      async function puedeCrear(usuario?: UsuarioDeTest): Promise<boolean> {
+        const regla = Usuarios.access?.create as Access;
+        // El argumento completo de Access tiene muchos campos que esta regla no lee: se arma
+        // solo `req.user` y se fuerza el tipo, únicamente acá.
+        const argumento = { req: { user: usuario } } as unknown as Parameters<Access>[0];
+        return (await regla(argumento)) === true;
+      }
+
+      it("la rechaza para una editora", async () => {
+        expect(await puedeCrear(await crearEditora(clienta))).toBe(false);
+      });
+
+      it("la rechaza sin usuario", async () => {
+        expect(await puedeCrear(undefined)).toBe(false);
+      });
+
+      it("la permite a la administradora de Axs", async () => {
+        expect(await puedeCrear(await crearAdministradorAxs())).toBe(true);
+      });
+    });
+  });
+
   describe("inicio de sesión", () => {
     it("con la clave correcta responde 200 y devuelve un token", async () => {
       const editora = await crearEditora(clienta);
@@ -127,16 +170,38 @@ describe("usuarios por HTTP", () => {
       expect(cuerpo.token).toBeUndefined();
     });
 
-    it("GET /api/usuarios/me con el token de una editora devuelve su usuario y su clienta", async () => {
+    it("el token que entrega el login sirve en GET /api/usuarios/me", async () => {
       const editora = await crearEditora(clienta);
 
-      const respuesta = await pedir("GET", "/api/usuarios/me", { como: editora });
+      const login = await pedir("POST", "/api/usuarios/login", {
+        json: { email: editora.email, password: editora.clave },
+      });
+      const { token } = (await login.json()) as { token: string };
+      // El token se manda a mano, sin `como`: es el que emitió el endpoint HTTP de login.
+      const respuesta = await pedir("GET", "/api/usuarios/me", {
+        cabeceras: { Authorization: `JWT ${token}` },
+      });
 
       expect(respuesta.status).toBe(200);
       const { user } = (await respuesta.json()) as { user: Usuario | null };
       expect(user?.id).toBe(editora.id);
-      expect(user?.email).toBe(editora.email);
       expect(idDe(user?.clienta)).toBe(clienta.id);
+    });
+
+    it("GET /api/usuarios/me devuelve a cada editora su propia clienta", async () => {
+      const otraClienta = await crearClienta({ nombre: "Otra clienta", slug: "otra-clienta" });
+      const editora = await crearEditora(clienta);
+      const otraEditora = await crearEditora(otraClienta);
+
+      const propia = await pedir("GET", "/api/usuarios/me", { como: editora });
+      const ajena = await pedir("GET", "/api/usuarios/me", { como: otraEditora });
+
+      const { user: usuaria } = (await propia.json()) as { user: Usuario | null };
+      const { user: otraUsuaria } = (await ajena.json()) as { user: Usuario | null };
+      expect(usuaria?.id).toBe(editora.id);
+      expect(idDe(usuaria?.clienta)).toBe(clienta.id);
+      expect(otraUsuaria?.id).toBe(otraEditora.id);
+      expect(idDe(otraUsuaria?.clienta)).toBe(otraClienta.id);
     });
   });
 
