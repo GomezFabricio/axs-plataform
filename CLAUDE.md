@@ -103,13 +103,21 @@ documentos `odd/tasks/` de gentle-ai): en este repo no se crean.
   solo en `apps/cms/tests/soporte/fabricas.ts`; el resto de los tests usa las fábricas.
 - El trabajo nuevo se hace con test primero: se ve fallar el test, se escribe el código, se
   refactoriza con los tests en verde.
-- No se suma ninguna dependencia con una versión publicada hace menos de dos semanas.
+- Un test nuevo se valida rompiendo a mano la regla que nombra y viéndolo fallar. Los tests que
+  editan o borran crean sus propios datos; los datos compartidos son solo de lectura.
+- Antes de cerrar un cambio que toque permisos o el contenido que ve el público, se rompen a
+  propósito las reglas afectadas sobre una copia y se comprueba que la suite lo note.
+- No se suma ninguna dependencia con una versión publicada hace menos de dos semanas. Lo hace
+  cumplir `minimumReleaseAge` en `pnpm-workspace.yaml`.
+- Si una corrida murió sin limpiar, el comando de limpieza manual está al principio de
+  `apps/cms/tests/soporte/preparacionGlobal.ts`.
 
 ## Git
 
 - `main` = producción, `develop` = staging, ramas cortas `feat/`, `fix/`, `chore/` desde develop.
 - Conventional commits. PRs con CI (`.github/workflows/ci.yml`): typecheck, lint, tests y build del
-  CMS bloquean; `pnpm audit` corre en un job aparte que por ahora solo informa (hay
+  CMS van en el job `verificacion`, que es el que hay que marcar como requerido en la protección
+  de ramas; `pnpm audit` corre en un job aparte que por ahora solo informa (hay
   vulnerabilidades previas en `next` y `payload`, D13 del expediente de tests). El build del sitio
   de Sabrina no está en el CI (D8). Sin push directo a main/develop.
 - No hay rama por clienta.

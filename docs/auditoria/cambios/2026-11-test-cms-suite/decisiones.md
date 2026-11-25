@@ -204,3 +204,52 @@ Dos fuentes de ruido que no vienen de los tests:
 **Por qué no se arregla acá:** el primero viene de Payload o de la carga inicial y se revisa al
 actualizar dependencias. El segundo se resuelve con un registro silencioso en el arnés; queda
 para cuando moleste.
+
+## D21 — Cada corrida tiene un identificador y limpia solo lo suyo (2026-11-25)
+
+Corrige lo que decía el plan (un nombre de plantilla armado con el número de proceso). El
+arranque global genera un prefijo al azar, `axs_test_<8 hex>_`, y se lo pasa a cada archivo de
+test con `provide` e `inject` de Vitest. La plantilla, las bases por archivo y la carpeta de
+medios de la corrida llevan ese prefijo. El cierre global borra todo lo que tenga el prefijo de
+esa corrida, y nada más.
+
+**Por qué:** el proceso que arma la plantilla y el que corre cada archivo tienen números
+distintos, así que el nombre del plan no coincidía. Y si un archivo de test no carga por un
+error de sintaxis, su limpieza propia no corre: el cierre global es la red. No se barren bases
+de otras corridas para no borrar las de otra terminal o de otra persona sobre el mismo Postgres.
+
+## D22 — La revisión final rompió 16 reglas y la suite no lo notó; se cerraron los huecos (2026-11-25)
+
+Con las siete tareas aprobadas una por una, la revisión de la rama completa rompió a propósito
+16 reglas del CMS en una copia y los 74 tests siguieron en verde. No había ningún defecto en el
+CMS: los huecos eran de la red. Se cerraron en una sola tanda:
+
+- Escrituras sin sesión sobre medios, clientas, usuarios y contenido del sitio.
+- La editora sin clienta asignada no puede modificar nada.
+- Cada imagen que devuelve el endpoint público se puede descargar de verdad.
+- El endpoint no devuelve ninguna clave fuera de su contrato.
+- El error 500 del endpoint no filtra detalle interno.
+- El bloqueo de borrar una foto en uso, con todas las fotos del contenido y no una sola.
+- Controles positivos: la administradora de Axs puede hacer lo que le corresponde.
+- El arnés limpia ante Ctrl-C y ante una migración que falla.
+
+**Por qué importa como método:** la revisión por tarea comprueba que cada test haga lo que su
+tarea pedía, pero no ve lo que el plan no pidió. Romper reglas en masa sobre una copia es lo que
+mostró lo que faltaba. Conviene repetirlo al cierre de todo cambio que toque seguridad.
+
+## D23 — Lo que esta suite no prueba, para los proyectos que siguen (2026-11-25)
+
+- **Migración de datos existentes.** La suite prueba que las migraciones arman una base vacía y
+  que el endpoint devuelve lo que la carga inicial cargó; el contenido de referencia es a la vez
+  la entrada y el valor esperado. No prueba qué pasa con una base que ya tiene contenido. El
+  proyecto 3 tiene que empezar con un test que arme la base con el esquema anterior y contenido
+  cargado, corra la migración nueva y compare el endpoint antes y después.
+- **Decisiones de D15.** El proyecto 2 tiene que fijarlas con tests explícitos al empezar (por
+  ejemplo, si una editora puede o no editar a otra usuaria de su misma clienta), para que el
+  motor de permisos las tome a conciencia.
+- **El panel en el navegador y el frontend de Sabrina.** Fuera del alcance de este cambio.
+
+**Dato nuevo sobre D17:** superar el tope de 10 MB sin sesión también responde 413, porque el
+archivo se procesa antes del control de acceso. El error interno sin atender se puede provocar
+sin autenticarse. Leyendo el código de Next 16.2.9, el servidor solo lo registra y no se cae;
+falta comprobarlo con el servidor levantado, en el cambio de dependencias.

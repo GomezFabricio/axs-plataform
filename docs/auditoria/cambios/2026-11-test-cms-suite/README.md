@@ -1,7 +1,8 @@
 # Tests del CMS
 
 **Tipo:** test
-**Estado:** planificado (2026-11-25). Plan en `tareas.md`, decisiones en `decisiones.md`.
+**Estado:** cerrado (2026-11-25). Falta subir la rama y ver la primera corrida del CI.
+**Rama:** `feat/cms-tests`, desde `4c87e1a`. Sin subir.
 **Nivel de ceremonia:** Completo
 **Estructural:** false
 **Áreas afectadas:** `apps/cms/` (tests nuevos, configuración del runner, `package.json`),
@@ -70,8 +71,62 @@ proyecto 2 y sirven para comprobar que ese cambio no rompió nada.
 
 ## Riesgos y supuestos
 
-- **Sin verificar:** que Vitest corra bien en Node 26. El CLI de Payload ya falló en esa versión
-  (D8 de `2026-11-feat-cms-subida-imagenes`). La primera tarea es comprobarlo antes de escribir
-  el resto. Si no corre, se evalúa otro runner antes de seguir.
+- El supuesto de arranque se cumplió: Vitest y Payload corren bien en Node 26 (D10).
 - La rama sale de `feat/cms-docker-e-imagenes`, porque los tests cubren la subida de imágenes y
-  eso todavía no está en `develop`.
+  eso todavía no está en `develop`. Para fusionar esta rama, aquella tiene que entrar antes o
+  junto con esta.
+
+## Cierre
+
+### Qué quedó
+
+- **97 tests en 7 archivos**, en verde, en unos 6 segundos. Se corren con `pnpm test`.
+- **Arnés** en `apps/cms/tests/soporte/`: base plantilla migrada, una base y una carpeta de
+  medios por archivo de test, fábricas, peticiones a los handlers sin servidor y limpieza ante
+  fallos, Ctrl-C y migraciones que fallan.
+- **CI** en `.github/workflows/ci.yml`: typecheck, lint, tests y build del CMS; la auditoría en
+  un job aparte que informa sin bloquear.
+- **Test primero encendido** en `docs/auditoria/config.yaml`, con las reglas en `CLAUDE.md`.
+- **ADR-004** con la estrategia de tests y `docs/arquitectura/overview.md` actualizado.
+
+| Archivo | Tests | Qué prueba |
+|---|---|---|
+| `integracion/aislamiento.test.ts` | 53 | Aislamiento entre clientas, escrituras sin sesión, editora sin clienta, controles de la administradora, contenido del sitio |
+| `integracion/usuarios.test.ts` | 12 | Alta de usuarios, cada defensa por separado, inicio de sesión |
+| `integracion/medios.test.ts` | 13 | Formatos, tope de 10 MB, lectura pública, borrado de fotos en uso |
+| `integracion/endpoint-sitio.test.ts` | 11 | Contrato, comparación con el contenido de referencia, imágenes, límite de peticiones, errores |
+| `integracion/arnes.test.ts` | 4 | Que el propio arnés funcione |
+| `unitarios/rateLimit.test.ts` | 3 | Límite de peticiones |
+| `integracion/carga-inicial.test.ts` | 1 | Carga inicial y que repetirla no duplique |
+
+### Qué se verificó
+
+- Cada tarea tuvo su revisión independiente y, donde hizo falta, su ronda de arreglos.
+- Cada test se vio fallar con su regla rota a mano y después se revirtió (D7, D14).
+- La revisión final rompió 16 reglas del CMS sobre una copia; los huecos que mostró se cerraron
+  en una tanda y se volvieron a verificar (D22).
+- En local, en el orden del CI: instalación, typecheck, lint, tests y build del CMS en verde.
+- Los únicos cambios en el código del CMS son D3 (`payload.config.ts`) y D4 (`Medios.ts`), sin
+  efecto en desarrollo ni en producción.
+- No apareció ningún defecto del CMS: no quedó ningún test marcado como fallo esperado.
+
+### Qué no se pudo verificar
+
+- **El workflow nunca corrió en GitHub.** Se ve recién al subir la rama. Ahí hay que mirar la
+  primera corrida y marcar el job `verificacion` como requerido en la protección de ramas.
+
+### Qué queda diferido
+
+- **Vulnerabilidades de dependencias (D13).** 140 previas, 9 críticas, en `next` y `payload`.
+  Va en un cambio aparte, `chore: actualizar dependencias`, antes del proyecto 2. Al cerrarlo,
+  el job de auditoría pasa a bloquear.
+- **Error interno sin atender al superar el tope de subida (D17).** Se puede provocar sin
+  sesión. Falta comprobar su efecto con el servidor levantado; va con el cambio de dependencias.
+- **Migración de bases con contenido (D23).** Lo tiene que cubrir el proyecto 3 antes de migrar.
+- **Decisiones de permisos implícitas (D15).** Las fija el proyecto 2 con tests al empezar.
+- **Build del sitio de Sabrina en CI (D8).** Va con el proyecto de publicación.
+- **Tests del panel en el navegador y del frontend.** Fuera del alcance.
+- **Comentario de cabecera incorrecto en `Usuarios.ts` (D18).** Se corrige en el proyecto 2.
+- **Salida de los tests con ruido (D20).** Aviso de `pg` y registros de Payload.
+- **Detalles menores del arnés, de los tests y del CI** que las revisiones dejaron anotados y
+  no abren ningún hueco en lo que la suite protege. La lista completa está en `diferidos.md`.

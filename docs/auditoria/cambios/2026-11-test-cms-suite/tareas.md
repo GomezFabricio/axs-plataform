@@ -74,6 +74,9 @@ tarea indicada.
 
 **Produce** (lo usan todas las tareas siguientes):
 
+> Nota (2026-11-25): `BASE_PLANTILLA` no se implementó así. El nombre de la plantilla y el de
+> cada base llevan un prefijo al azar por corrida, que viaja con `provide` e `inject` (D21).
+
 ```ts
 // tests/soporte/entorno.ts
 export const URL_POSTGRES_TEST: string; // process.env.TEST_POSTGRES_URL ?? "postgres://axs:axsdev@localhost:5432"
@@ -365,24 +368,40 @@ it("carga el contenido de Sabrina y repetirla no duplica nada", async () => {
 **Archivos:** crear `.github/workflows/ci.yml`; modificar `docs/auditoria/config.yaml`,
 `docs/arquitectura/overview.md`, `README.md` de esta carpeta, `CLAUDE.md`.
 
-- [ ] **Paso 1.** `ci.yml`: se dispara en `pull_request` y en `push` a `develop` y `main`. Un
+- [x] **Paso 1.** `ci.yml`: se dispara en `pull_request` y en `push` a `develop` y `main`. Un
   job en `ubuntu-latest` con el servicio `postgres:17.5` (usuario `axs`, clave `axsdev`, base
   `axs_cms`, puerto 5432, chequeo de salud con `pg_isready`). Pasos: checkout, pnpm 10.33.0,
   Node 26 con caché de pnpm, `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`,
   `pnpm test`, `pnpm --filter @axs/cms build` con `DATABASE_URI` apuntando al servicio y un
   `PAYLOAD_SECRET` de relleno, `pnpm audit`. Las acciones van fijadas por hash de commit.
-- [ ] **Paso 2.** Correr en local, en ese orden, los mismos comandos del workflow. Esperado:
+- [x] **Paso 2.** Correr en local, en ese orden, los mismos comandos del workflow. Esperado:
   todos en verde. Si `pnpm audit` o el build fallan por algo que ya estaba así en `develop`,
   anotarlo en `decisiones.md` y consultar; no se silencia ni se arregla dentro de esta tarea.
-- [ ] **Paso 3.** `config.yaml`: `test_runner.name: vitest`, `test_runner.command: pnpm test`,
+- [x] **Paso 3.** `config.yaml`: `test_runner.name: vitest`, `test_runner.command: pnpm test`,
   `test_runner.detected_from: apps/cms/package.json`, `rules.implement.tdd: true`.
-- [ ] **Paso 4.** `CLAUDE.md`: sección corta "Tests" con cómo correrlos (`pnpm test`, que
+- [x] **Paso 4.** `CLAUDE.md`: sección corta "Tests" con cómo correrlos (`pnpm test`, que
   necesita el Postgres local levantado) y la regla D6. Corregir la línea de CI de la sección
   Git para que diga lo que el workflow hace de verdad.
-- [ ] **Paso 5.** `overview.md`: proyecto 1 pasa a "Completado" con fecha y enlace a este
+- [x] **Paso 5.** `overview.md`: proyecto 1 pasa a "Completado" con fecha y enlace a este
   expediente. `README.md`: estado "cerrado" y sección `## Cierre` con lo verificado (cantidad de
   tests, tiempo de la corrida) y lo diferido (D8, tests del panel en el navegador, lo que haya
   quedado con `it.fails`).
-- [ ] **Paso 6.** Commit: `ci: workflow de typecheck, lint, tests y audit; TDD encendido`.
+- [x] **Paso 6.** Commit: `ci: workflow de typecheck, lint, tests y audit; TDD encendido`.
 - [ ] **Paso 7.** El primer resultado real del workflow se ve recién al subir la rama. Subirla
   y abrir el PR es decisión de Fabricio.
+
+**Hecho, salvo el paso 7.** Commit `1e9f066`. Revisión aprobada. En local: instalación,
+typecheck, lint, tests y build del CMS en verde; la auditoría falla por las vulnerabilidades
+previas (D13) y corre en un job que informa sin bloquear. El paso 5 se hizo al cerrar el
+expediente. El paso 7 queda para Fabricio.
+
+---
+
+## Revisión final de la rama
+
+- [x] Revisión de la rama completa (`4c87e1a..3b87b1b`): "con arreglos". Sin defectos del CMS;
+  16 reglas rotas a propósito sin que la suite lo notara (D22).
+- [x] Tanda única de arreglos: commits `aaeedd2`, `d766a12`, `c35c50a`, `66eba58` y `d072c29`.
+  La suite pasó de 74 a 97 tests.
+- [x] Verificación de la tanda.
+- [x] Cierre del expediente, `overview.md`, ADR-004 y `CLAUDE.md`.
