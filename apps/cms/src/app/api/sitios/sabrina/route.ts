@@ -4,6 +4,33 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { consultarRateLimit } from "@/lib/rateLimit";
 
+/** Forma del medio poblado por findGlobal (depth por defecto) en los campos upload. */
+interface MedioPoblado {
+  url?: string | null;
+  textoAlternativo?: string | null;
+  width?: number | null;
+  height?: number | null;
+}
+
+/**
+ * Convierte un campo upload del global al MedioSchema del DTO.
+ * Si el medio no vino poblado (id suelto o null), devuelve url vacía, igual que antes con un campo vacío.
+ */
+function aMedioDto(imagen: unknown): {
+  url: string;
+  textoAlternativo: string;
+  ancho?: number;
+  alto?: number;
+} {
+  const medio = typeof imagen === "object" && imagen !== null ? (imagen as MedioPoblado) : undefined;
+  return {
+    url: medio?.url ?? "",
+    textoAlternativo: medio?.textoAlternativo ?? "",
+    ...(medio?.width ? { ancho: medio.width } : {}),
+    ...(medio?.height ? { alto: medio.height } : {}),
+  };
+}
+
 /**
  * GET /api/sitios/sabrina
  * Lee el Global sitio-sabrina vía la Local API de Payload y devuelve el DTO
@@ -74,7 +101,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         etiqueta?: string;
         titulo?: string;
         copete?: string;
-        imagen?: { url?: string; textoAlternativo?: string };
+        imagen?: unknown;
       }>;
     } | null | undefined;
 
@@ -89,7 +116,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       copete?: string;
       titulo?: string;
       parrafos?: Array<{ texto?: string }>;
-      imagen?: { url?: string; textoAlternativo?: string };
+      imagen?: unknown;
     } | null | undefined;
 
     const proposito = global.proposito as {
@@ -115,7 +142,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       descripcion?: string;
       incluye?: Array<{ item?: string }>;
       cita?: string;
-      imagen?: { url?: string; textoAlternativo?: string };
+      imagen?: unknown;
     } | null | undefined;
 
     const comoTrabajo = global.comoTrabajo as {
@@ -130,7 +157,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       experiencias?: Array<{
         titulo?: string;
         descripcion?: string;
-        imagen?: { url?: string; textoAlternativo?: string };
+        imagen?: unknown;
       }>;
       tambienOrganizo?: Array<{ icono?: string; texto?: string }>;
     } | null | undefined;
@@ -184,20 +211,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           etiqueta: e.etiqueta ?? "",
           titulo: e.titulo ?? "",
           copete: e.copete ?? "",
-          imagen: {
-            url: e.imagen?.url ?? "",
-            textoAlternativo: e.imagen?.textoAlternativo ?? "",
-          },
+          imagen: aMedioDto(e.imagen),
         })),
       },
       sobreMi: {
         copete: sobreMi?.copete ?? "",
         titulo: sobreMi?.titulo ?? "",
         parrafos: (sobreMi?.parrafos ?? []).map((p) => p.texto ?? ""),
-        imagen: {
-          url: sobreMi?.imagen?.url ?? "",
-          textoAlternativo: sobreMi?.imagen?.textoAlternativo ?? "",
-        },
+        imagen: aMedioDto(sobreMi?.imagen),
       },
       proposito: {
         icono: proposito?.icono ?? "",
@@ -222,10 +243,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         descripcion: pack?.descripcion ?? "",
         incluye: (pack?.incluye ?? []).map((i) => i.item ?? ""),
         cita: pack?.cita ?? "",
-        imagen: {
-          url: pack?.imagen?.url ?? "",
-          textoAlternativo: pack?.imagen?.textoAlternativo ?? "",
-        },
+        imagen: aMedioDto(pack?.imagen),
       },
       comoTrabajo: {
         copete: comoTrabajo?.copete ?? "",
@@ -242,10 +260,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         experiencias: (experienciasGroup?.experiencias ?? []).map((e) => ({
           titulo: e.titulo ?? "",
           descripcion: e.descripcion ?? "",
-          imagen: {
-            url: e.imagen?.url ?? "",
-            textoAlternativo: e.imagen?.textoAlternativo ?? "",
-          },
+          imagen: aMedioDto(e.imagen),
         })),
         tambienOrganizo: (experienciasGroup?.tambienOrganizo ?? []).map((t) => ({
           icono: t.icono ?? "",

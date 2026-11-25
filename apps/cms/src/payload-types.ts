@@ -414,10 +414,10 @@ export interface SitioSabrina {
        */
       titulo: string;
       copete: string;
-      imagen: {
-        url: string;
-        textoAlternativo: string;
-      };
+      /**
+       * Foto nueva o una ya cargada en la biblioteca. Formatos: JPG, PNG, WebP o AVIF.
+       */
+      imagen: number | Medio;
       id?: string | null;
     }[];
   };
@@ -428,10 +428,10 @@ export interface SitioSabrina {
       texto: string;
       id?: string | null;
     }[];
-    imagen: {
-      url: string;
-      textoAlternativo: string;
-    };
+    /**
+     * Foto nueva o una ya cargada en la biblioteca. Formatos: JPG, PNG, WebP o AVIF.
+     */
+    imagen: number | Medio;
   };
   proposito: {
     /**
@@ -461,10 +461,10 @@ export interface SitioSabrina {
       id?: string | null;
     }[];
     cita: string;
-    imagen: {
-      url: string;
-      textoAlternativo: string;
-    };
+    /**
+     * Foto nueva o una ya cargada en la biblioteca. Formatos: JPG, PNG, WebP o AVIF.
+     */
+    imagen: number | Medio;
   };
   comoTrabajo: {
     copete: string;
@@ -482,10 +482,10 @@ export interface SitioSabrina {
     experiencias: {
       titulo: string;
       descripcion: string;
-      imagen: {
-        url: string;
-        textoAlternativo: string;
-      };
+      /**
+       * Foto nueva o una ya cargada en la biblioteca. Formatos: JPG, PNG, WebP o AVIF.
+       */
+      imagen: number | Medio;
       id?: string | null;
     }[];
     tambienOrganizo: {
@@ -564,12 +564,7 @@ export interface SitioSabrinaSelect<T extends boolean = true> {
               etiqueta?: T;
               titulo?: T;
               copete?: T;
-              imagen?:
-                | T
-                | {
-                    url?: T;
-                    textoAlternativo?: T;
-                  };
+              imagen?: T;
               id?: T;
             };
       };
@@ -584,12 +579,7 @@ export interface SitioSabrinaSelect<T extends boolean = true> {
               texto?: T;
               id?: T;
             };
-        imagen?:
-          | T
-          | {
-              url?: T;
-              textoAlternativo?: T;
-            };
+        imagen?: T;
       };
   proposito?:
     | T
@@ -626,12 +616,7 @@ export interface SitioSabrinaSelect<T extends boolean = true> {
               id?: T;
             };
         cita?: T;
-        imagen?:
-          | T
-          | {
-              url?: T;
-              textoAlternativo?: T;
-            };
+        imagen?: T;
       };
   comoTrabajo?:
     | T
@@ -657,12 +642,7 @@ export interface SitioSabrinaSelect<T extends boolean = true> {
           | {
               titulo?: T;
               descripcion?: T;
-              imagen?:
-                | T
-                | {
-                    url?: T;
-                    textoAlternativo?: T;
-                  };
+              imagen?: T;
               id?: T;
             };
         tambienOrganizo?:

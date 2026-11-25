@@ -1,4 +1,23 @@
-import type { GlobalConfig, AccessArgs } from "payload";
+import type { GlobalConfig, AccessArgs, Field } from "payload";
+
+/**
+ * Imagen del sitio: la clienta la sube (o elige una ya subida) desde el panel.
+ * El texto alternativo se carga en el medio, una sola vez por archivo.
+ */
+const campoImagen: Field = {
+  name: "imagen",
+  type: "upload",
+  relationTo: "medios",
+  required: true,
+  // Solo medios de la clienta dueña del sitio. Payload lo aplica en el selector y lo valida
+  // al guardar, así un id de medio de otra clienta (o inexistente) se rechaza con 400.
+  filterOptions: async ({ req }) => ({
+    clienta: { equals: (await idClientaSabrina(req)) ?? -1 },
+  }),
+  admin: {
+    description: "Foto nueva o una ya cargada en la biblioteca. Formatos: JPG, PNG, WebP o AVIF.",
+  },
+};
 
 /**
  * Global singleton que contiene el contenido completo del sitio de Sabrina.
@@ -28,24 +47,30 @@ import type { GlobalConfig, AccessArgs } from "payload";
  */
 const SLUG_CLIENTA_SABRINA = "sabrina" as const;
 
+/**
+ * Id de la clienta dueña de este global, resuelto por slug (no hardcodear el id numérico).
+ * overrideAccess: true — consulta interna del sistema, no acción del usuario.
+ */
+async function idClientaSabrina(req: AccessArgs["req"]): Promise<number | undefined> {
+  const resultado = await req.payload.find({
+    collection: "clientas",
+    where: { slug: { equals: SLUG_CLIENTA_SABRINA } },
+    limit: 1,
+    overrideAccess: true,
+    req,
+  });
+  return resultado.docs[0]?.id;
+}
+
 async function esEditorDeSabrina({ req }: AccessArgs): Promise<boolean> {
   const user = req.user;
   if (!user) return false;
   if (user.rol === "super_admin") return true;
   if (user.rol !== "tenant_editor" || !user.clienta) return false;
 
-  // Resolver el id de la clienta por slug (no hardcodear el id numérico).
-  // overrideAccess: true — consulta interna del sistema de access control, no acción del usuario.
-  const resultado = await req.payload.find({
-    collection: "clientas",
-    where: { slug: { equals: SLUG_CLIENTA_SABRINA } },
-    limit: 1,
-    overrideAccess: true,
-  });
+  const clientaSabrinaId = await idClientaSabrina(req);
+  if (clientaSabrinaId === undefined) return false;
 
-  if (resultado.docs.length === 0) return false;
-
-  const clientaSabrinaId = resultado.docs[0]!.id;
   const userClientaId =
     typeof user.clienta === "object" && user.clienta !== null
       ? (user.clienta as { id: number | string }).id
@@ -97,14 +122,7 @@ export const SitioSabrina: GlobalConfig = {
             { name: "etiqueta", type: "text", required: true },
             { name: "titulo", type: "text", required: true, admin: { description: "Admite \\n para saltos de línea" } },
             { name: "copete", type: "text", required: true },
-            {
-              name: "imagen",
-              type: "group",
-              fields: [
-                { name: "url", type: "text", required: true },
-                { name: "textoAlternativo", type: "text", required: true },
-              ],
-            },
+            campoImagen,
           ],
         },
       ],
@@ -117,14 +135,7 @@ export const SitioSabrina: GlobalConfig = {
         { name: "copete", type: "text", required: true },
         { name: "titulo", type: "text", required: true },
         { name: "parrafos", type: "array", required: true, fields: [{ name: "texto", type: "text", required: true }] },
-        {
-          name: "imagen",
-          type: "group",
-          fields: [
-            { name: "url", type: "text", required: true },
-            { name: "textoAlternativo", type: "text", required: true },
-          ],
-        },
+        campoImagen,
       ],
     },
     // ─── proposito ───────────────────────────────────────────────────────────
@@ -177,14 +188,7 @@ export const SitioSabrina: GlobalConfig = {
         { name: "descripcion", type: "text", required: true },
         { name: "incluye", type: "array", required: true, fields: [{ name: "item", type: "text", required: true }] },
         { name: "cita", type: "text", required: true },
-        {
-          name: "imagen",
-          type: "group",
-          fields: [
-            { name: "url", type: "text", required: true },
-            { name: "textoAlternativo", type: "text", required: true },
-          ],
-        },
+        campoImagen,
       ],
     },
     // ─── comoTrabajo ─────────────────────────────────────────────────────────
@@ -220,14 +224,7 @@ export const SitioSabrina: GlobalConfig = {
           fields: [
             { name: "titulo", type: "text", required: true },
             { name: "descripcion", type: "text", required: true },
-            {
-              name: "imagen",
-              type: "group",
-              fields: [
-                { name: "url", type: "text", required: true },
-                { name: "textoAlternativo", type: "text", required: true },
-              ],
-            },
+            campoImagen,
           ],
         },
         {

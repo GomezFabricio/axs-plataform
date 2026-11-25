@@ -1,0 +1,17 @@
+**/node_modules
+**/.next
+**/.pnpm-store
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+.git
+.atl
+.claude
+docs
+apps/cms/media
+sites/**/uploads
+*.png
+*.jpeg
+*.jpg

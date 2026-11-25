@@ -1,11 +1,45 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Payload } from "payload";
 import { sitioSabrina } from "@axs/cms-client/fixtures";
 
 /**
- * Seed del tenant Sabrina: crea la clienta y carga el global sitio-sabrina
- * con el contenido de fixtures/sabrina.ts.
+ * Seed del tenant Sabrina: crea la clienta, sube las imágenes de referencia como medios
+ * y carga el global sitio-sabrina con el contenido de fixtures/sabrina.ts.
  * Idempotente: re-correrlo no duplica datos.
  */
+/** Carpeta public/ del sitio: las rutas de imagen del fixture (/assets/...) son relativas a ella. */
+const DIR_PUBLIC_SITIO = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../../sites/influencers/sabrina/public",
+);
+
+/**
+ * Devuelve el id del medio para una imagen del fixture, subiéndola si todavía no existe.
+ * Idempotente: identifica el medio por nombre de archivo dentro de los medios de la clienta.
+ */
+export async function asegurarMedio(
+  payload: Payload,
+  clientaId: string | number,
+  imagen: { url: string; textoAlternativo: string },
+): Promise<number> {
+  const archivo = path.basename(imagen.url);
+  const existentes = await payload.find({
+    collection: "medios",
+    where: { filename: { equals: archivo }, clienta: { equals: Number(clientaId) } },
+    limit: 1,
+  });
+  if (existentes.docs[0]) return existentes.docs[0].id;
+
+  const medio = await payload.create({
+    collection: "medios",
+    data: { textoAlternativo: imagen.textoAlternativo, clienta: Number(clientaId) },
+    filePath: path.join(DIR_PUBLIC_SITIO, imagen.url),
+  });
+  payload.logger.info(`Medio subido: ${archivo} (id: ${medio.id})`);
+  return medio.id;
+}
+
 export async function seedSabrina(payload: Payload): Promise<void> {
   // ── 1. Crear o reusar la clienta Sabrina ─────────────────────────────────
   const existentes = await payload.find({
@@ -33,7 +67,20 @@ export async function seedSabrina(payload: Payload): Promise<void> {
     payload.logger.info(`Clienta Sabrina ya existe (id: ${clientaId}), se omite creación`);
   }
 
-  // ── 2. Cargar el global sitio-sabrina ────────────────────────────────────
+  // ── 2. Subir las imágenes de referencia como medios ──────────────────────
+  // En serie: asegurarMedio deduplica por nombre de archivo y hero-1/hero-2 se repiten.
+  const imagenesEscenas: number[] = [];
+  for (const e of sitioSabrina.hero.escenas) {
+    imagenesEscenas.push(await asegurarMedio(payload, clientaId, e.imagen));
+  }
+  const imagenSobreMi = await asegurarMedio(payload, clientaId, sitioSabrina.sobreMi.imagen);
+  const imagenPack = await asegurarMedio(payload, clientaId, sitioSabrina.pack.imagen);
+  const imagenesExperiencias: number[] = [];
+  for (const e of sitioSabrina.experiencias.experiencias) {
+    imagenesExperiencias.push(await asegurarMedio(payload, clientaId, e.imagen));
+  }
+
+  // ── 3. Cargar el global sitio-sabrina ────────────────────────────────────
   // Payload globals son singletons; updateGlobal es idempotente.
   await payload.updateGlobal({
     slug: "sitio-sabrina",
@@ -49,21 +96,18 @@ export async function seedSabrina(payload: Payload): Promise<void> {
       hero: {
         ctaPrimario: sitioSabrina.hero.ctaPrimario,
         ctaSecundario: sitioSabrina.hero.ctaSecundario,
-        escenas: sitioSabrina.hero.escenas.map((e) => ({
+        escenas: sitioSabrina.hero.escenas.map((e, i) => ({
           etiqueta: e.etiqueta,
           titulo: e.titulo,
           copete: e.copete,
-          imagen: { url: e.imagen.url, textoAlternativo: e.imagen.textoAlternativo },
+          imagen: imagenesEscenas[i]!,
         })),
       },
       sobreMi: {
         copete: sitioSabrina.sobreMi.copete,
         titulo: sitioSabrina.sobreMi.titulo,
         parrafos: sitioSabrina.sobreMi.parrafos.map((p) => ({ texto: p })),
-        imagen: {
-          url: sitioSabrina.sobreMi.imagen.url,
-          textoAlternativo: sitioSabrina.sobreMi.imagen.textoAlternativo,
-        },
+        imagen: imagenSobreMi,
       },
       proposito: {
         icono: sitioSabrina.proposito.icono,
@@ -86,10 +130,7 @@ export async function seedSabrina(payload: Payload): Promise<void> {
         descripcion: sitioSabrina.pack.descripcion,
         incluye: sitioSabrina.pack.incluye.map((i) => ({ item: i })),
         cita: sitioSabrina.pack.cita,
-        imagen: {
-          url: sitioSabrina.pack.imagen.url,
-          textoAlternativo: sitioSabrina.pack.imagen.textoAlternativo,
-        },
+        imagen: imagenPack,
       },
       comoTrabajo: {
         copete: sitioSabrina.comoTrabajo.copete,
@@ -103,10 +144,10 @@ export async function seedSabrina(payload: Payload): Promise<void> {
       experiencias: {
         titulo: sitioSabrina.experiencias.titulo,
         copete: sitioSabrina.experiencias.copete,
-        experiencias: sitioSabrina.experiencias.experiencias.map((e) => ({
+        experiencias: sitioSabrina.experiencias.experiencias.map((e, i) => ({
           titulo: e.titulo,
           descripcion: e.descripcion,
-          imagen: { url: e.imagen.url, textoAlternativo: e.imagen.textoAlternativo },
+          imagen: imagenesExperiencias[i]!,
         })),
         tambienOrganizo: sitioSabrina.experiencias.tambienOrganizo.map((t) => ({
           icono: t.icono,
