@@ -1,0 +1,121 @@
+# CI de la plataforma Axs.
+#
+# Dos jobs independientes:
+#   - verificacion: typecheck, lint, tests y build del CMS. Bloquea el PR.
+#   - auditoria: pnpm audit. Informa pero no bloquea (ver el comentario del job).
+#
+# El build del sitio de Sabrina queda afuera a propósito (D8 del expediente
+# docs/auditoria/cambios/2026-11-test-cms-suite): pide el contenido a un CMS en marcha y eso
+# lo resuelve el proyecto de publicación. Typecheck y lint sí lo cubren, vía los scripts de la raíz.
+#
+# Las acciones van fijadas por hash de commit (el tag va en el comentario) y con versiones
+# publicadas hace al menos dos semanas (D12).
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+# Un push nuevo a la misma rama o PR cancela la corrida anterior que quedó superada.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificacion:
+    name: Typecheck, lint, tests y build del CMS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      # Mismo Postgres y mismas credenciales que apps/cms/docker-compose.yml. Los tests lo
+      # encuentran en el valor por defecto de TEST_POSTGRES_URL (postgres://axs:axsdev@localhost:5432).
+      postgres:
+        image: postgres:17.5
+        env:
+          POSTGRES_USER: axs
+          POSTGRES_PASSWORD: axsdev
+          POSTGRES_DB: axs_cms
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U axs -d axs_cms"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Sin `version`: pnpm sale del campo packageManager del package.json raíz (pnpm@10.33.0),
+      # que es la única fuente de la versión.
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Instalar Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Tests
+        run: pnpm test
+
+      # Igual que apps/cms/Dockerfile: el build necesita DATABASE_URI y PAYLOAD_SECRET definidos.
+      # El secreto es un relleno descartable que solo existe en este job; no firma nada real.
+      - name: Build del CMS
+        run: pnpm --filter @axs/cms build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          PAYLOAD_SECRET: relleno-descartable-solo-para-el-build-de-ci
+          DATABASE_URI: postgres://axs:axsdev@localhost:5432/axs_cms
+
+  auditoria:
+    # Hoy `pnpm audit` falla: reporta vulnerabilidades en next y payload que ya estaban antes
+    # de este workflow (D13 del expediente 2026-11-test-cms-suite). Actualizarlas es un cambio
+    # aparte (chore: actualizar dependencias). Hasta que ese cambio entre, el job informa y no
+    # bloquea (continue-on-error); cuando entre, se quita continue-on-error y pasa a bloquear.
+    name: Auditoría de dependencias (informativa)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Instalar Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Auditar dependencias
+        run: pnpm audit

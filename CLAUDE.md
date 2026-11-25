@@ -88,16 +88,30 @@ documentos `odd/tasks/` de gentle-ai): en este repo no se crean.
   - `decisiones.md`: registro append-only, cada entrada con fecha + qué se decidió + por qué.
   - `tareas.md`: checklist; se tacha una tarea solo cuando se observó su resultado.
 - Los cambios chicos (un ajuste puntual) no necesitan expediente.
-- La configuración de referencia está en `docs/auditoria/config.yaml` (TDD apagado hasta que haya
-  suite de tests) y los guardrails en `docs/auditoria/guardrails.yaml`.
+- La configuración de referencia está en `docs/auditoria/config.yaml` (TDD encendido: el CMS ya
+  tiene suite de tests) y los guardrails en `docs/auditoria/guardrails.yaml`.
 - El overview (`docs/arquitectura/overview.md`) se actualiza cuando el cambio toca arquitectura,
   modelo de datos o roadmap.
 - La revisión de gentle-ai sigue activa para los cambios de riesgo; no reemplaza al expediente.
 
+## Tests
+
+- Se corren con `pnpm test` desde la raíz (Vitest, en `apps/cms`). Necesitan el Postgres local
+  levantado: `docker compose -f apps/cms/docker-compose.yml up -d`. Por defecto lo buscan en
+  `postgres://axs:axsdev@localhost:5432`; se cambia con `TEST_POSTGRES_URL`.
+- Los tests describen comportamiento. Los nombres de rol (`super_admin`, `tenant_editor`) aparecen
+  solo en `apps/cms/tests/soporte/fabricas.ts`; el resto de los tests usa las fábricas.
+- El trabajo nuevo se hace con test primero: se ve fallar el test, se escribe el código, se
+  refactoriza con los tests en verde.
+- No se suma ninguna dependencia con una versión publicada hace menos de dos semanas.
+
 ## Git
 
 - `main` = producción, `develop` = staging, ramas cortas `feat/`, `fix/`, `chore/` desde develop.
-- Conventional commits. PRs con CI (typecheck, lint, build, `pnpm audit`). Sin push directo a main/develop.
+- Conventional commits. PRs con CI (`.github/workflows/ci.yml`): typecheck, lint, tests y build del
+  CMS bloquean; `pnpm audit` corre en un job aparte que por ahora solo informa (hay
+  vulnerabilidades previas en `next` y `payload`, D13 del expediente de tests). El build del sitio
+  de Sabrina no está en el CI (D8). Sin push directo a main/develop.
 - No hay rama por clienta.
 
 ## Autoría
