@@ -83,3 +83,41 @@ La conversión de un medio al DTO se cubre con el test del endpoint, no con un t
 
 **Por qué:** vive dentro de `route.ts`, y un archivo de ruta de Next no puede exportar otras
 funciones. Extraerla es tocar código que el proyecto 3 va a reescribir.
+
+## D10 — Los supuestos del diseño se cumplieron en Node 26 (2026-11-25)
+
+La tarea 1 comprobó los cuatro supuestos que estaban sin verificar: Vitest corre en Node 26,
+`getPayload` arranca bajo Vitest, `payload.db.migrate({ migrations })` arma una base vacía y los
+handlers de las rutas responden sin servidor. El diseño sigue como estaba.
+
+**Por qué importa:** el CLI de Payload falla en Node 26 por un defecto de `tsx` (D8 de
+`2026-11-feat-cms-subida-imagenes`). Vitest no usa `tsx`, así que el problema no lo alcanza.
+
+## D11 — Cerrar Payload en los tests exige cortar las conexiones a mano (2026-11-25)
+
+`payload.db.destroy()` no cierra el pool de conexiones de `pg`, y `pool.end()` no termina nunca
+porque el adaptador de Postgres toma un cliente al conectar y no lo devuelve. El arnés cierra
+con `cerrarPayload()`: llama a `destroy()`, dispara `pool.end()` sin esperarlo y corta las
+conexiones de esa base con `pg_terminate_backend`. Recién ahí clona o borra la base.
+
+**Por qué:** Postgres no deja clonar ni borrar una base que tiene conexiones abiertas. Sin este
+cierre la primera corrida quedaba colgada. Es comportamiento de Payload 3.85.1; al actualizar
+Payload hay que revisar si sigue haciendo falta.
+
+## D12 — No se instala una versión publicada hace menos de dos semanas (2026-11-25)
+
+Vitest queda en una versión con al menos dos semanas de publicada, no en la última.
+
+**Por qué:** la última (5.1.2) se había publicado el mismo día de la instalación. Una versión
+recién publicada no tuvo tiempo de que se detecte un paquete comprometido. El costo es perder
+uno o dos parches menores. Vale como criterio para toda dependencia nueva.
+
+## D13 — `pnpm audit` ya fallaba antes de este cambio (2026-11-25)
+
+La auditoría reporta 140 vulnerabilidades (9 críticas, 61 altas), todas anteriores a este
+cambio. Las críticas están en `next` (5) y `payload` (4). Este cambio no las arregla.
+
+**Por qué no se arregla acá:** actualizar Next y Payload es un cambio con riesgo propio y el
+ADR-003 fija sus versiones. Conviene hacerlo con la suite ya andando, como cambio aparte:
+`chore: actualizar dependencias`, inmediatamente después de este. Hasta entonces el CI corre la
+auditoría en un job que informa pero no bloquea.
