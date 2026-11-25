@@ -111,6 +111,14 @@ export async function crearAdministradorAxs(): Promise<UsuarioDeTest> {
 }
 
 /**
+ * Los campos que le darían a una usuaria acceso total si se guardaran. Lo usan los tests que
+ * intentan una escalada (por la API local o por HTTP) sin nombrar el rol.
+ */
+export function datosDeAccesoTotal(): Pick<Usuario, "rol" | "clienta"> {
+  return { rol: "super_admin", clienta: null };
+}
+
+/**
  * La usuaria intenta darse a sí misma acceso total: edita su propio documento, con las reglas de
  * acceso activas, pidiendo el rol de administradora. Si Payload rechaza el cambio, lo ignora: el
  * test comprueba el efecto, no cómo se rechazó.
@@ -121,7 +129,7 @@ export async function intentarVolverseAdministradora(usuaria: UsuarioDeTest): Pr
     await payload.update({
       collection: "usuarios",
       id: usuaria.id,
-      data: { rol: "super_admin", clienta: null },
+      data: datosDeAccesoTotal(),
       overrideAccess: false,
       user: { ...usuaria, collection: "usuarios" },
     });

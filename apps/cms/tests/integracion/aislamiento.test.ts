@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { Forbidden, NotFound } from "payload";
 import type { Payload } from "payload";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -7,19 +9,24 @@ import {
   crearAdministradorAxs,
   crearClienta,
   crearEditora,
+  datosDeAccesoTotal,
   imagenDePrueba,
   intentarVolverseAdministradora,
   obtenerPayloadDeTest,
   subirMedio,
 } from "../soporte/fabricas";
 import type { UsuarioDeTest } from "../soporte/fabricas";
+import { pedir } from "../soporte/http";
 
 /**
  * Aislamiento entre clientas: lo que una editora puede ver y tocar de otra. Las operaciones van
  * por la API local con las reglas de acceso activas (`overrideAccess: false`) y el usuario que
- * corresponde; sin usuario es el caso "sin sesión". Para comprobar que un dato no cambió o no se
+ * corresponde; sin usuario es el caso "sin sesión". Las escrituras sin sesión se prueban además
+ * por HTTP, que es por donde llegan de verdad. Para comprobar que un dato no cambió o no se
  * borró se lo vuelve a leer con `overrideAccess: true`.
  */
+
+const CLAVE_NUEVA = "clave-cambiada-sin-sesion-2026";
 
 let payload: Payload;
 
@@ -44,6 +51,16 @@ async function recargar(usuaria: UsuarioDeTest): Promise<UsuarioDeTest> {
     overrideAccess: true,
   });
   return { ...actual, clave: usuaria.clave };
+}
+
+async function contarMedios(): Promise<number> {
+  const { totalDocs } = await payload.count({ collection: "medios", overrideAccess: true });
+  return totalDocs;
+}
+
+/** Ruta del archivo del medio en la carpeta de medios del archivo de test. */
+function archivoDe(medio: Medio): string {
+  return path.join(process.env["MEDIA_DIR"]!, medio.filename!);
 }
 
 describe("aislamiento entre clientas", () => {
@@ -97,7 +114,7 @@ describe("aislamiento entre clientas", () => {
     });
 
     it("no puede editar ni la suya ni otra clienta", async () => {
-      // Clientas e editora propias del test: si la regla cayera, no se pisan las fixtures de los demás.
+      // Clientas y editora propias del test: si la regla cayera, no se pisan las fixtures de los demás.
       const propia = await crearClienta();
       const ajena = await crearClienta();
       const editora = await crearEditora(propia);
@@ -345,6 +362,72 @@ describe("aislamiento entre clientas", () => {
         payload.find({ collection: "medios", ...como(editoraSinClienta) }),
       ).rejects.toBeInstanceOf(Forbidden);
     });
+
+    it("no puede subir un medio y no se crea ninguno", async () => {
+      const antes = await contarMedios();
+      const imagen = imagenDePrueba();
+      await expect(
+        payload.create({
+          collection: "medios",
+          data: { textoAlternativo: "Subido sin clienta" },
+          file: {
+            data: imagen.contenido,
+            mimetype: imagen.tipo,
+            name: imagen.nombre,
+            size: imagen.contenido.length,
+          },
+          ...como(editoraSinClienta),
+        }),
+      ).rejects.toBeInstanceOf(Forbidden);
+      expect(await contarMedios()).toBe(antes);
+    });
+
+    it("no puede editar un medio existente", async () => {
+      const medio = await subirMedio(await crearClienta(), "Medio que no se edita");
+      await expect(
+        payload.update({
+          collection: "medios",
+          id: medio.id,
+          data: { textoAlternativo: "Texto cambiado" },
+          ...como(editoraSinClienta),
+        }),
+      ).rejects.toBeInstanceOf(Forbidden);
+      const actual = await payload.findByID({ collection: "medios", id: medio.id, overrideAccess: true });
+      expect(actual.textoAlternativo).toBe("Medio que no se edita");
+    });
+
+    it("no puede borrar un medio existente, que sigue con su archivo", async () => {
+      const medio = await subirMedio(await crearClienta(), "Medio que no se borra");
+      await expect(
+        payload.delete({ collection: "medios", id: medio.id, ...como(editoraSinClienta) }),
+      ).rejects.toBeInstanceOf(Forbidden);
+      const sigue = await payload.findByID({ collection: "medios", id: medio.id, overrideAccess: true });
+      expect(sigue.id).toBe(medio.id);
+      expect(existsSync(archivoDe(medio))).toBe(true);
+    });
+
+    it("no puede editar a un usuario existente", async () => {
+      const usuaria = await crearEditora(await crearClienta());
+      await expect(
+        payload.update({
+          collection: "usuarios",
+          id: usuaria.id,
+          data: { email: "cambiado-sin-clienta@prueba.test" },
+          ...como(editoraSinClienta),
+        }),
+      ).rejects.toBeInstanceOf(Forbidden);
+      const actual = await recargar(usuaria);
+      expect(actual.email).toBe(usuaria.email);
+    });
+
+    it("no puede borrar a un usuario existente", async () => {
+      const usuaria = await crearEditora(await crearClienta());
+      await expect(
+        payload.delete({ collection: "usuarios", id: usuaria.id, ...como(editoraSinClienta) }),
+      ).rejects.toBeInstanceOf(Forbidden);
+      const sigue = await recargar(usuaria);
+      expect(sigue.id).toBe(usuaria.id);
+    });
   });
 
   describe("administradora de Axs", () => {
@@ -369,6 +452,40 @@ describe("aislamiento entre clientas", () => {
       expect(ids).toContain(medioA.id);
       expect(ids).toContain(medioB.id);
     });
+
+    it("puede editar una clienta", async () => {
+      const clienta = await crearClienta();
+      await payload.update({
+        collection: "clientas",
+        id: clienta.id,
+        data: { nombre: "Nombre cambiado por Axs" },
+        ...como(administradora),
+      });
+      const actual = await payload.findByID({ collection: "clientas", id: clienta.id, overrideAccess: true });
+      expect(actual.nombre).toBe("Nombre cambiado por Axs");
+    });
+
+    it("puede borrar una clienta", async () => {
+      const clienta = await crearClienta();
+      await payload.delete({ collection: "clientas", id: clienta.id, ...como(administradora) });
+      const { totalDocs } = await payload.count({
+        collection: "clientas",
+        where: { id: { equals: clienta.id } },
+        overrideAccess: true,
+      });
+      expect(totalDocs).toBe(0);
+    });
+
+    it("puede borrar un usuario", async () => {
+      const usuaria = await crearEditora(await crearClienta());
+      await payload.delete({ collection: "usuarios", id: usuaria.id, ...como(administradora) });
+      const { totalDocs } = await payload.count({
+        collection: "usuarios",
+        where: { id: { equals: usuaria.id } },
+        overrideAccess: true,
+      });
+      expect(totalDocs).toBe(0);
+    });
   });
 
   describe("sin sesión", () => {
@@ -392,12 +509,96 @@ describe("aislamiento entre clientas", () => {
       }
     });
   });
+
+  describe("sin sesión, por HTTP, no se puede modificar nada", () => {
+    it("POST /api/clientas se rechaza con 403 y no crea la clienta", async () => {
+      const respuesta = await pedir("POST", "/api/clientas", {
+        json: { nombre: "Clienta sin sesión", slug: "aislamiento-sin-sesion" },
+      });
+      expect(respuesta.status).toBe(403);
+      const { totalDocs } = await payload.count({
+        collection: "clientas",
+        where: { slug: { equals: "aislamiento-sin-sesion" } },
+        overrideAccess: true,
+      });
+      expect(totalDocs).toBe(0);
+    });
+
+    it("PATCH /api/clientas/:id se rechaza con 403 y la clienta queda igual", async () => {
+      const clienta = await crearClienta();
+      const respuesta = await pedir("PATCH", `/api/clientas/${clienta.id}`, {
+        json: { nombre: "Nombre cambiado sin sesión" },
+      });
+      expect(respuesta.status).toBe(403);
+      const actual = await payload.findByID({ collection: "clientas", id: clienta.id, overrideAccess: true });
+      expect(actual.nombre).toBe(clienta.nombre);
+    });
+
+    it("DELETE /api/clientas/:id se rechaza con 403 y la clienta sigue", async () => {
+      const clienta = await crearClienta();
+      const respuesta = await pedir("DELETE", `/api/clientas/${clienta.id}`);
+      expect(respuesta.status).toBe(403);
+      const sigue = await payload.findByID({ collection: "clientas", id: clienta.id, overrideAccess: true });
+      expect(sigue.id).toBe(clienta.id);
+    });
+
+    it("PATCH /api/medios/:id se rechaza con 403 y el medio queda igual", async () => {
+      const medio = await subirMedio(await crearClienta(), "Medio sin sesión para editar");
+      const respuesta = await pedir("PATCH", `/api/medios/${medio.id}`, {
+        json: { textoAlternativo: "Texto cambiado sin sesión" },
+      });
+      expect(respuesta.status).toBe(403);
+      const actual = await payload.findByID({ collection: "medios", id: medio.id, overrideAccess: true });
+      expect(actual.textoAlternativo).toBe("Medio sin sesión para editar");
+    });
+
+    it("DELETE /api/medios/:id se rechaza con 403 y el medio sigue con su archivo", async () => {
+      const medio = await subirMedio(await crearClienta(), "Medio sin sesión para borrar");
+      const respuesta = await pedir("DELETE", `/api/medios/${medio.id}`);
+      expect(respuesta.status).toBe(403);
+      const sigue = await payload.findByID({ collection: "medios", id: medio.id, overrideAccess: true });
+      expect(sigue.id).toBe(medio.id);
+      expect(existsSync(archivoDe(medio))).toBe(true);
+    });
+
+    it("PATCH /api/usuarios/:id con clave y acceso nuevos se rechaza con 403 y la cuenta queda igual", async () => {
+      const clienta = await crearClienta();
+      const usuaria = await crearEditora(clienta);
+      const respuesta = await pedir("PATCH", `/api/usuarios/${usuaria.id}`, {
+        json: { password: CLAVE_NUEVA, ...datosDeAccesoTotal() },
+      });
+      expect(respuesta.status).toBe(403);
+
+      const actual = await recargar(usuaria);
+      expect(actual.rol).toBe(usuaria.rol);
+      expect(idDe(actual.clienta)).toBe(clienta.id);
+      // La clave nueva no entra y la de siempre sigue sirviendo.
+      const conClaveNueva = await pedir("POST", "/api/usuarios/login", {
+        json: { email: usuaria.email, password: CLAVE_NUEVA },
+      });
+      expect(conClaveNueva.status).toBe(401);
+      const conClaveVieja = await pedir("POST", "/api/usuarios/login", {
+        json: { email: usuaria.email, password: usuaria.clave },
+      });
+      expect(conClaveVieja.status).toBe(200);
+    });
+
+    it("DELETE /api/usuarios/:id se rechaza con 403 y el usuario sigue", async () => {
+      const usuaria = await crearEditora(await crearClienta());
+      const respuesta = await pedir("DELETE", `/api/usuarios/${usuaria.id}`);
+      expect(respuesta.status).toBe(403);
+      const sigue = await recargar(usuaria);
+      expect(sigue.id).toBe(usuaria.id);
+    });
+  });
 });
 
 describe("aislamiento del contenido del sitio", () => {
   let sabrina: Clienta;
   let editoraSabrina: UsuarioDeTest;
   let editoraOtra: UsuarioDeTest;
+  let editoraSinClienta: UsuarioDeTest;
+  let administradora: UsuarioDeTest;
   let medioDeOtra: Medio;
 
   beforeAll(async () => {
@@ -413,6 +614,8 @@ describe("aislamiento del contenido del sitio", () => {
     const otra = await crearClienta({ slug: "aislamiento-otra" });
     editoraSabrina = await crearEditora(sabrina);
     editoraOtra = await crearEditora(otra);
+    editoraSinClienta = await crearEditora();
+    administradora = await crearAdministradorAxs();
     medioDeOtra = await subirMedio(otra, "Foto de otra clienta");
   }, 120_000);
 
@@ -454,6 +657,51 @@ describe("aislamiento del contenido del sitio", () => {
     await expect(payload.findGlobal({ slug: "sitio-sabrina", ...como() })).rejects.toBeInstanceOf(
       Forbidden,
     );
+  });
+
+  it("sin sesión, POST /api/globals/sitio-sabrina se rechaza con 403 y el contenido queda igual", async () => {
+    const antes = await payload.findGlobal({ slug: "sitio-sabrina", overrideAccess: true });
+    expect(antes.config.nombre).toBeTruthy();
+    const respuesta = await pedir("POST", "/api/globals/sitio-sabrina", {
+      json: { config: { nombre: "Nombre pisado sin sesión" } },
+    });
+    expect(respuesta.status).toBe(403);
+    const despues = await payload.findGlobal({ slug: "sitio-sabrina", overrideAccess: true });
+    expect(despues.config.nombre).toBe(antes.config.nombre);
+  });
+
+  it("la editora sin clienta no puede leer el contenido", async () => {
+    await expect(
+      payload.findGlobal({ slug: "sitio-sabrina", ...como(editoraSinClienta) }),
+    ).rejects.toBeInstanceOf(Forbidden);
+  });
+
+  it("la editora sin clienta no puede editar el contenido", async () => {
+    const antes = await payload.findGlobal({ slug: "sitio-sabrina", overrideAccess: true });
+    await expect(
+      payload.updateGlobal({
+        slug: "sitio-sabrina",
+        data: { config: { nombre: "Nombre pisado por una editora sin clienta" } },
+        ...como(editoraSinClienta),
+      }),
+    ).rejects.toBeInstanceOf(Forbidden);
+    const despues = await payload.findGlobal({ slug: "sitio-sabrina", overrideAccess: true });
+    expect(despues.config.nombre).toBe(antes.config.nombre);
+  });
+
+  it("la administradora de Axs puede leer el contenido", async () => {
+    const sitio = await payload.findGlobal({ slug: "sitio-sabrina", ...como(administradora) });
+    expect(sitio.config.nombre).toBeTruthy();
+  });
+
+  it("la administradora de Axs puede editar el contenido", async () => {
+    await payload.updateGlobal({
+      slug: "sitio-sabrina",
+      data: { config: { nombre: "Nombre editado por Axs" } },
+      ...como(administradora),
+    });
+    const guardado = await payload.findGlobal({ slug: "sitio-sabrina", overrideAccess: true });
+    expect(guardado.config.nombre).toBe("Nombre editado por Axs");
   });
 
   it("no se puede poner en una sección una foto de otra clienta", async () => {
