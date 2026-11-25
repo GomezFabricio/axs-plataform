@@ -106,7 +106,7 @@ La suite vive en `apps/cms/tests/` y se corre con `pnpm test` desde la raiz. Son
 
 | # | Proyecto | Estado | Descripcion |
 |---|---|---|---|
-| 1 | Tests del CMS | Completado (2026-11-25) | Suite de 97 tests contra Postgres real, CI y test primero encendido. Expediente: `docs/auditoria/cambios/2026-11-test-cms-suite/`. Queda subir la rama y ver la primera corrida del CI. |
+| 1 | Tests del CMS | Completado (2026-11-25) | Suite de 97 tests contra Postgres real, CI y test primero encendido. Expediente: `docs/auditoria/cambios/2026-11-test-cms-suite/`. CI en verde en GitHub; en revision en el PR #2. |
 | 2 | Perfiles y permisos | Pendiente | Motor de permisos (permiso, perfil, varios perfiles por usuario) en lugar de los roles fijos `super_admin` y `tenant_editor`. El aislamiento por clienta se mantiene aparte. |
 | 3 | Biblioteca de secciones | Pendiente | Secciones con variantes, orden, paletas y estilo de animacion; borrador, vista previa y publicacion; el sitio de Sabrina rehecho encima con su diseno. Requiere un ADR nuevo que reemplace al ADR-002. |
 | 4 | Molde de marca personal | Pendiente | Catalogo de secciones del rubro, siluetas, limite de lugares. |

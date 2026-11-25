@@ -387,13 +387,14 @@ it("carga el contenido de Sabrina y repetirla no duplica nada", async () => {
   tests, tiempo de la corrida) y lo diferido (D8, tests del panel en el navegador, lo que haya
   quedado con `it.fails`).
 - [x] **Paso 6.** Commit: `ci: workflow de typecheck, lint, tests y audit; TDD encendido`.
-- [ ] **Paso 7.** El primer resultado real del workflow se ve recién al subir la rama. Subirla
-  y abrir el PR es decisión de Fabricio.
+- [x] **Paso 7.** El primer resultado real del workflow se ve recién al subir la rama. Subirla
+  y abrir el PR es decisión de Fabricio. Hecho el 2026-11-25: PR #1 y PR #2 abiertos; la primera
+  corrida destapó una diferencia entre macOS y Linux (D24) y la segunda quedó en verde.
 
-**Hecho, salvo el paso 7.** Commit `1e9f066`. Revisión aprobada. En local: instalación,
+**Hecho.** Commits `1e9f066` y `e9c5d68`. Revisión aprobada. En local: instalación,
 typecheck, lint, tests y build del CMS en verde; la auditoría falla por las vulnerabilidades
 previas (D13) y corre en un job que informa sin bloquear. El paso 5 se hizo al cerrar el
-expediente. El paso 7 queda para Fabricio.
+expediente.
 
 ---
 

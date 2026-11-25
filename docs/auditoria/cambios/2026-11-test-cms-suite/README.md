@@ -1,8 +1,8 @@
 # Tests del CMS
 
 **Tipo:** test
-**Estado:** cerrado (2026-11-25). Falta subir la rama y ver la primera corrida del CI.
-**Rama:** `feat/cms-tests`, desde `4c87e1a`. Sin subir.
+**Estado:** cerrado (2026-11-25). CI en verde en GitHub.
+**Rama:** `feat/cms-tests`, desde `4c87e1a`. PR #2, apilado sobre el PR #1 (`feat/cms-docker-e-imagenes`).
 **Nivel de ceremonia:** Completo
 **Estructural:** false
 **Áreas afectadas:** `apps/cms/` (tests nuevos, configuración del runner, `package.json`),
@@ -110,10 +110,14 @@ proyecto 2 y sirven para comprobar que ese cambio no rompió nada.
   efecto en desarrollo ni en producción.
 - No apareció ningún defecto del CMS: no quedó ningún test marcado como fallo esperado.
 
-### Qué no se pudo verificar
+### La primera corrida del CI
 
-- **El workflow nunca corrió en GitHub.** Se ve recién al subir la rama. Ahí hay que mirar la
-  primera corrida y marcar el job `verificacion` como requerido en la protección de ramas.
+- El workflow corrió en GitHub al abrir el PR #2. El job `verificacion` (typecheck, lint, tests
+  y build del CMS) pasa en 1 minuto y medio.
+- La primera corrida falló por una diferencia entre macOS y Linux en un test, ya corregida (D24).
+- El job `auditoria` sale en rojo, como se esperaba (D13).
+- Falta marcar el job `verificacion` como requerido en la protección de ramas. Es configuración
+  del repositorio y la decide Fabricio.
 
 ### Qué queda diferido
 
