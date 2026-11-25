@@ -106,7 +106,9 @@ describe("usuarios por HTTP", () => {
     it("el hook rechaza el alta aun sin reglas de acceso y sin usuario", async () => {
       const correo = correoNuevo();
 
-      // Con overrideAccess el control de acceso no se evalúa: solo el hook puede rechazar.
+      // Con overrideAccess el control de acceso no se evalúa: solo el hook puede rechazar. Se
+      // exige su 403: un error de validación (por ejemplo, si el rol dejara de tener valor por
+      // defecto) también rechazaría el alta, pero no probaría que el hook sigue ahí.
       await expect(
         payload.create({
           collection: "usuarios",
@@ -115,7 +117,7 @@ describe("usuarios por HTTP", () => {
           data: { email: correo, password: CLAVE_NUEVA } as Omit<Usuario, "id" | "createdAt" | "updatedAt">,
           overrideAccess: true,
         }),
-      ).rejects.toThrow();
+      ).rejects.toMatchObject({ status: 403 });
 
       expect(await usuariosConCorreo(correo)).toHaveLength(0);
     });

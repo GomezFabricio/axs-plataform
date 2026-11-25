@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { Payload } from "payload";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { SitioSabrinaSchema } from "@axs/cms-client";
 import { sitioSabrina } from "@axs/cms-client/fixtures";
 import { seedSabrina } from "@/seed/sabrina";
@@ -100,6 +100,15 @@ describe("endpoint del sitio con el contenido cargado", () => {
     expect(() => SitioSabrinaSchema.parse(cuerpo)).not.toThrow();
   });
 
+  it("no devuelve ningún campo fuera del contrato", async () => {
+    const respuesta = await desde("203.0.113.23");
+    const cuerpoCrudo: unknown = await respuesta.json();
+
+    // El esquema descarta las claves que no conoce: si el cuerpo crudo trae alguna de más (por
+    // ejemplo la clienta de un medio o un campo interno), deja de ser igual a su versión validada.
+    expect(cuerpoCrudo).toEqual(SitioSabrinaSchema.parse(cuerpoCrudo));
+  });
+
   it("devuelve el mismo contenido que el fixture de referencia", async () => {
     const respuesta = await desde("203.0.113.21");
     const cuerpo = SitioSabrinaSchema.parse(await respuesta.json());
@@ -127,6 +136,24 @@ describe("endpoint del sitio con el contenido cargado", () => {
       expect(imagen["ancho"], `ancho de ${ruta}`).toBeGreaterThan(0);
       expect(imagen["alto"], `alto de ${ruta}`).toBeGreaterThan(0);
     });
+  });
+
+  it("la URL de cada imagen apunta al CMS y sirve el archivo", async () => {
+    const payload = await obtenerPayloadDeTest();
+    const respuesta = await desde("203.0.113.24");
+    const recibidas = imagenesDe(SitioSabrinaSchema.parse(await respuesta.json()));
+    expect(recibidas.length).toBe(imagenesDe(SitioSabrinaSchema.parse(sitioSabrina)).length);
+
+    // El sitio usa `url` tal cual como `src`: tiene que llevar al archivo servido por este CMS.
+    const origenDelCms = new URL(payload.config.serverURL).origin;
+    for (const { ruta, imagen } of recibidas) {
+      const url = new URL(String(imagen["url"]));
+      expect(url.origin, `origen de ${ruta}: ${url.href}`).toBe(origenDelCms);
+
+      const archivo = await pedir("GET", url.pathname);
+      expect(archivo.status, `GET ${url.pathname} (${ruta})`).toBe(200);
+      expect(archivo.headers.get("content-type"), `content-type de ${ruta}`).toMatch(/^image\//);
+    }
   });
 
   describe("límite de peticiones por IP", () => {
@@ -174,5 +201,27 @@ describe("endpoint del sitio con el contenido cargado", () => {
       // La segunda dirección nunca se contó: empieza de cero.
       expect(restantes(sobreLaSegundaSola)).toBe(LIMITE_POR_VENTANA - 1);
     });
+  });
+});
+
+describe("endpoint del sitio cuando falla la lectura del contenido", () => {
+  it("responde 500 con un mensaje genérico, sin el detalle del error", async () => {
+    const payload = await obtenerPayloadDeTest();
+    // El handler usa la misma instancia de Payload que el test: el espía le hace fallar la lectura.
+    const lectura = vi
+      .spyOn(payload, "findGlobal")
+      .mockRejectedValueOnce(new Error('select "config_nombre" from "sitio_sabrina" falló en /app/src/x.ts'));
+    // El handler registra el error: se lo silencia para que el detalle falso no ensucie la salida.
+    const registro = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const respuesta = await desde("203.0.113.50");
+
+      expect(lectura).toHaveBeenCalledTimes(1);
+      expect(respuesta.status).toBe(500);
+      expect(await respuesta.json()).toEqual({ error: "No se pudo obtener el sitio" });
+    } finally {
+      lectura.mockRestore();
+      registro.mockRestore();
+    }
   });
 });

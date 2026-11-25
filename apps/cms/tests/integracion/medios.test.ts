@@ -85,6 +85,23 @@ async function esperarCierreDelParser(rechazosPrevios: number): Promise<void> {
   }
 }
 
+/**
+ * Medios poblados dentro del contenido del sitio, con la ruta donde aparece cada uno (por ejemplo
+ * `experiencias.experiencias.0.imagen`). Reconoce un medio por su forma (archivo y tipo), no por el
+ * nombre del campo que lo contiene, para seguir encontrándolos si cambia cómo se guarda el sitio.
+ */
+function mediosReferenciados(valor: unknown, ruta = ""): Array<{ ruta: string; medio: Medio }> {
+  if (typeof valor !== "object" || valor === null) return [];
+  if (Array.isArray(valor)) return valor.flatMap((v, i) => mediosReferenciados(v, `${ruta}.${i}`));
+  const objeto = valor as Record<string, unknown>;
+  if (typeof objeto["filename"] === "string" && typeof objeto["mimeType"] === "string") {
+    return [{ ruta, medio: valor as Medio }];
+  }
+  return Object.entries(objeto).flatMap(([clave, v]) =>
+    mediosReferenciados(v, ruta ? `${ruta}.${clave}` : clave),
+  );
+}
+
 /** Mensajes de error de una respuesta de Payload ({ errors: [{ message }] }). */
 async function mensajesDeError(respuesta: Response): Promise<string[]> {
   const cuerpo = (await respuesta.json()) as { errors?: Array<{ message: string }> };
@@ -218,7 +235,6 @@ describe("medios por HTTP", () => {
 
   describe("borrado", () => {
     let editoraSabrina: UsuarioDeTest;
-    let medioEnUso: Medio;
 
     beforeAll(async () => {
       await seedSabrina(payload);
@@ -230,34 +246,40 @@ describe("medios por HTTP", () => {
       });
       const sabrina = docs[0]!;
       editoraSabrina = await crearEditora(sabrina);
-
-      // Un medio que el contenido sembrado de verdad referencia: la imagen del "sobre mí".
-      const sitio = await payload.findGlobal({ slug: "sitio-sabrina", depth: 0 });
-      const idEnUso = sitio.sobreMi.imagen;
-      medioEnUso = await payload.findByID({
-        collection: "medios",
-        id: idEnUso as number,
-        overrideAccess: true,
-      });
     });
 
-    it("no borra una foto que está en uso en el sitio", async () => {
-      const archivo = path.join(carpetaDeMedios(), medioEnUso.filename!);
-      expect(existsSync(archivo)).toBe(true);
+    it("no borra ninguna de las fotos que usa el sitio", async () => {
+      // Las fotos en uso salen del contenido sembrado, recorrido entero: no de una lista fija.
+      const sitio = await payload.findGlobal({ slug: "sitio-sabrina", depth: 1, overrideAccess: true });
+      const referencias = mediosReferenciados(sitio);
+      const enUso = new Map(referencias.map(({ medio }) => [medio.id, medio]));
 
-      const respuesta = await pedir("DELETE", `/api/medios/${medioEnUso.id}`, {
-        como: editoraSabrina,
-      });
+      // El contenido sembrado usa 5 archivos en 7 lugares. Si el recorrido no los encontrara a
+      // todos, el test pasaría sin haber probado nada.
+      expect(referencias).toHaveLength(7);
+      expect(enUso.size).toBe(5);
 
-      expect(respuesta.status).toBe(400);
-      expect(await mensajesDeError(respuesta)).toContain(MENSAJE_EN_USO);
-      const sigue = await payload.findByID({
-        collection: "medios",
-        id: medioEnUso.id,
-        overrideAccess: true,
-      });
-      expect(sigue.id).toBe(medioEnUso.id);
-      expect(existsSync(archivo)).toBe(true);
+      for (const medio of enUso.values()) {
+        const lugares = referencias
+          .filter((referencia) => referencia.medio.id === medio.id)
+          .map((referencia) => referencia.ruta)
+          .join(", ");
+        const archivo = path.join(carpetaDeMedios(), medio.filename!);
+        expect(existsSync(archivo), `archivo de ${medio.filename} antes de borrar`).toBe(true);
+
+        const respuesta = await pedir("DELETE", `/api/medios/${medio.id}`, { como: editoraSabrina });
+
+        // `soft`: si una foto queda sin proteger, el fallo nombra todas las que quedaron así.
+        expect.soft(respuesta.status, `borrado de ${medio.filename} (en uso en ${lugares})`).toBe(400);
+        expect.soft(await mensajesDeError(respuesta), `mensaje para ${medio.filename}`).toContain(MENSAJE_EN_USO);
+        const { totalDocs } = await payload.count({
+          collection: "medios",
+          where: { id: { equals: medio.id } },
+          overrideAccess: true,
+        });
+        expect.soft(totalDocs, `documento de ${medio.filename}`).toBe(1);
+        expect.soft(existsSync(archivo), `archivo de ${medio.filename} después de borrar`).toBe(true);
+      }
     });
 
     it("borra una foto que no está en uso", async () => {
