@@ -1,5 +1,4 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { afterAll, inject } from "vitest";
 import { SECRETO_PAYLOAD_TEST, ejecutarEnServidor, urlDeBase } from "./entorno";
@@ -8,15 +7,16 @@ import { SECRETO_PAYLOAD_TEST, ejecutarEnServidor, urlDeBase } from "./entorno";
  * Corre antes de cargar cada archivo de test: le da una base propia, clonada de la plantilla
  * migrada, y una carpeta de medios temporal fuera del repo. Al terminar el archivo borra las dos.
  * Todo se fija antes de que el test importe la configuración de Payload, que lee las variables
- * al cargarse.
+ * al cargarse. Si el archivo no llega a cargar y este `afterAll` no corre, la base y la carpeta
+ * las borra el cierre de la corrida (preparacionGlobal.ts), porque llevan su identificador.
  */
 
 const contador = globalThis as { archivosDeTest?: number };
 contador.archivosDeTest = (contador.archivosDeTest ?? 0) + 1;
-const baseDelArchivo = `axs_test_${process.pid}_${contador.archivosDeTest}`;
+const baseDelArchivo = `${inject("prefijoBasesCorrida")}${process.pid}_${contador.archivosDeTest}`;
 
 await ejecutarEnServidor(`CREATE DATABASE ${baseDelArchivo} TEMPLATE ${inject("basePlantilla")}`);
-const carpetaMedios = await mkdtemp(path.join(os.tmpdir(), "axs-medios-test-"));
+const carpetaMedios = await mkdtemp(path.join(inject("carpetaMediosCorrida"), "archivo-"));
 
 process.env["DATABASE_URI"] = urlDeBase(baseDelArchivo);
 process.env["PAYLOAD_SECRET"] = SECRETO_PAYLOAD_TEST;
