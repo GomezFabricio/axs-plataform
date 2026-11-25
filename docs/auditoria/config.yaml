@@ -10,10 +10,10 @@ context:
     - tailwind     # Tailwind 4 (sitios)
     - framer-motion
     - zod          # validación DTOs (packages/cms-client)
-  test_runner:     # ningún test runner detectado al correr /fg-setup
-    name: null
-    command: null
-    detected_from: null
+  test_runner:     # Vitest, declarado en apps/cms/package.json; se corre desde la raíz
+    name: vitest
+    command: pnpm test
+    detected_from: apps/cms/package.json
 
 rules:
   workflow:
@@ -36,8 +36,8 @@ rules:
 
   implement:
     # Si true, /fg-implement aplica Safety Net → RED → GREEN → TRIANGULATE → REFACTOR.
-    # Activar editando este valor a true cuando el proyecto tenga una suite de tests.
-    tdd: false
+    # Encendido: el proyecto ya tiene suite de tests (apps/cms, Vitest).
+    tdd: true
     # Comando de test. Si vacío, usa context.test_runner.command.
     test_command: ""
     # Máximo de tareas por batch. /fg-implement corta al llegar al límite y reporta.

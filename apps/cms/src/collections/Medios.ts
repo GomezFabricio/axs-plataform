@@ -36,7 +36,9 @@ export const TIPOS_IMAGEN_PERMITIDOS = ["image/jpeg", "image/png", "image/webp",
 export const Medios: CollectionConfig = {
   slug: "medios",
   upload: {
-    staticDir: "media",
+    // MEDIA_DIR permite que los tests guarden los archivos fuera del repo. Sin la variable, o con
+    // la variable vacía (como la deja un compose o un .env sin valor), se usa "media".
+    staticDir: process.env["MEDIA_DIR"] || "media",
     mimeTypes: TIPOS_IMAGEN_PERMITIDOS,
   },
   admin: {

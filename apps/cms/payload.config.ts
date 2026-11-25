@@ -33,9 +33,9 @@ export default buildConfig({
     pool: {
       connectionString: process.env["DATABASE_URI"] ?? "",
     },
-    // En desarrollo se puede usar push: true para crear/actualizar el esquema sin migrar.
-    // En producción desactivar esto y usar las migraciones generadas.
-    push: process.env["NODE_ENV"] !== "production",
+    // En desarrollo push crea/actualiza el esquema sin migrar.
+    // En producción y en test el esquema sale de las migraciones (en test, para probarlas).
+    push: process.env["NODE_ENV"] !== "production" && process.env["NODE_ENV"] !== "test",
     migrationDir: path.resolve(__dirname, "src/migrations"),
   }),
   secret: process.env["PAYLOAD_SECRET"] ?? "",
